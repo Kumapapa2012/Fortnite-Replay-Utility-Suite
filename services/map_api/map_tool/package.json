@@ -1,0 +1,12 @@
+{
+  "name": "map-tool",
+  "version": "0.1.0",
+  "description": "Downloads the current Fortnite BR map tiles from fortnite.gg and stitches them into combined_map.webp. Invoked by map_api at startup and via POST /api/map/update.",
+  "private": true,
+  "scripts": {
+    "update": "node download_and_combine.js"
+  },
+  "dependencies": {
+    "sharp": "^0.34.5"
+  }
+}

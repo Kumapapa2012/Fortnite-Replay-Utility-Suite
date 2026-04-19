@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="void" data-mode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>01. セットアップ — Fortnite Replay Suite</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <script src="./assets/app.js" defer></script>
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="page-header">
+    <div class="brand">
+      <a href="./index.html">
+        <span class="logo">FR</span>
+        <span>Fortnite Replay Suite</span>
+      </a>
+      <span class="badge">User Guide</span>
+      <span style="font-size:13px; color: var(--muted); font-weight:500; margin-left:4px;">セットアップ</span>
+    </div>
+    <nav class="header-nav">
+      <a href="./index.html">ホーム</a>
+      <button class="mode-btn" data-mode-toggle type="button">☀ Light</button>
+    </nav>
+  </header>
+
+  <main class="page">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <p class="sidebar-heading">本章の内容</p>
+        <ul class="sidebar-list" id="toc">
+          <li><a href="#overview"><span class="sn">—</span>概要</a></li>
+          <li><a href="#prerequisites"><span class="sn">1</span>必要なソフトウェア</a></li>
+          <li><a href="#obs"><span class="sn">2</span>OBS Studio 設定</a></li>
+          <li><a href="#clone"><span class="sn">3</span>リポジトリの取得</a></li>
+          <li><a href="#python"><span class="sn">4</span>Python 環境</a></li>
+          <li><a href="#frontend"><span class="sn">5</span>フロントエンド</a></li>
+          <li><a href="#dotnet"><span class="sn">6</span>.NET パーサ</a></li>
+          <li><a href="#config"><span class="sn">7</span>初期設定ファイル</a></li>
+          <li><a href="#env"><span class="sn">8</span>OBS パスワードの設定 (.env)</a></li>
+          <li><a href="#verify"><span class="sn">9</span>セットアップ確認</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-heading">他の章</p>
+        <div class="sidebar-chapters">
+          <a href="./02_startup.html"><span class="cn">02</span>起動と停止</a>
+          <a href="./03_dashboard_settings.html"><span class="cn">03</span>ダッシュボード &amp; 設定</a>
+          <a href="./04_matches_replays.html"><span class="cn">04</span>マッチとリプレイ</a>
+          <a href="./05_videos.html"><span class="cn">05</span>動画トリミング</a>
+          <a href="./06_logs.html"><span class="cn">06</span>ログ監視</a>
+          <a href="./07_troubleshoot.html"><span class="cn">07</span>トラブルシュート</a>
+        </div>
+      </div>
+    </aside>
+
+    <article class="content">
+
+      <!-- ── OVERVIEW ── -->
+      <section id="overview">
+        <div style="position:relative; overflow:hidden; margin-bottom:40px;">
+          <div class="chapter-bg-num">01</div>
+          <div class="chapter-eyebrow">Chapter 01</div>
+          <h1>セットアップ</h1>
+          <p class="lead">Fortnite Replay Suite を新しい PC で動かすための初期セットアップ手順です。所要 20〜30 分程度。Windows 11 を前提としています。</p>
+        </div>
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">この章のゴール</span>
+            <p>コマンド 1 つで 6 サービスが立ち上がり、<code>scripts/smoke.py</code> が全 <span class="badge badge-ok">OK</span> を返す状態になること。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── PREREQUISITES ── -->
+      <section id="prerequisites">
+        <h2><span class="h2-num">1</span>必要なソフトウェア</h2>
+        <p>以下をあらかじめインストールしておきます。すべてのコマンドラインツールは、コマンドプロンプトから呼び出せる状態（<code>PATH</code> が通っている）にしてください。</p>
+
+        <table>
+          <thead>
+            <tr><th>ソフトウェア</th><th>バージョン</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Windows</td><td>11 (64bit)</td><td>OS</td></tr>
+            <tr><td>Python</td><td>3.11 以降</td><td>Gateway と 4 つの API サービス</td></tr>
+            <tr><td>.NET SDK</td><td>9.0 以降</td><td>replay_parser（<code>.replay</code> のパース）</td></tr>
+            <tr><td>Node.js</td><td>20 以降</td><td>フロントエンド（Vite + React）</td></tr>
+            <tr><td>ffmpeg / ffprobe</td><td>最新安定版</td><td>録画動画のトリミング</td></tr>
+            <tr><td><a href="https://obsproject.com/ja/download" target="_blank" rel="noopener">OBS Studio</a></td><td>最新版</td><td>録画・リプレイバッファ・WebSocket</td></tr>
+            <tr><td>PowerShell</td><td>7 (pwsh)</td><td>起動・停止スクリプト</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div class="callout-body">
+            <span class="callout-title">ffmpeg の PATH 確認</span>
+            <p>新しいコマンドプロンプトで <code>ffmpeg -version</code> / <code>ffprobe -version</code> が実行できることを確認してください。PATH が通っていないと動画ページで <span class="badge badge-warn">FAIL</span> バッジが出ます。</p>
+          </div>
+        </div>
+
+        <figure class="figure">
+          <img src="./assets/img/01_01_versions.png" alt="各ツールの --version 実行例" loading="lazy" />
+          <figcaption>図 1.1 — 前提ツールのバージョン確認（python / dotnet / node / ffmpeg）</figcaption>
+        </figure>
+      </section>
+
+      <!-- ── OBS ── -->
+      <section id="obs">
+        <h2><span class="h2-num">2</span>OBS Studio 設定</h2>
+        <p>本ツールは OBS Studio の録画ファイルと連携します。以下の 2 点を事前に設定してください。詳細は <a href="https://obsproject.com/ja" target="_blank" rel="noopener">OBS Studio 公式サイト</a> を参照してください。</p>
+
+        <ol class="steps">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>シーンとソースの設定</strong>
+              <p>Fortnite の画面を録画するには、まず OBS でシーンを作成し、ソースを追加します。</p>
+              <ol style="margin: 8px 0; padding-left: 1.4em; font-size: 14px; color: var(--fg-2);">
+                <li>「シーン」パネルの <strong>+</strong> ボタンで任意の名前のシーンを作成します。</li>
+                <li>「ソース」パネルの <strong>+</strong> ボタンをクリックし、<strong>ゲームキャプチャ</strong> を選択します。</li>
+                <li>モードを <strong>特定のウィンドウをキャプチャ</strong> に変更します。</li>
+                <li>Fortnite を起動した状態でウィンドウのドロップダウンを開き、<code>FortniteClient-Win64-Shipping.exe</code> を選択します。</li>
+              </ol>
+              <div class="callout callout-note" style="margin-top: 10px">
+                <span class="callout-icon">💡</span>
+                <div class="callout-body">
+                  <span class="callout-title">Fortnite を先に起動しておく</span>
+                  <p>ドロップダウンに <code>FortniteClient-Win64-Shipping.exe</code> が表示されない場合は、Fortnite を起動してから再度ドロップダウンを開いてください。</p>
+                </div>
+              </div>
+              <figure class="figure" style="margin-top: 14px">
+                <img src="./assets/img/01_02_obs_scene.png" alt="OBS のシーン・ソース設定（ゲームキャプチャ）" loading="lazy" />
+                <figcaption>図 1.2 — OBS のシーンとゲームキャプチャ設定</figcaption>
+              </figure>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>リプレイバッファを有効化する</strong>
+              <p>Fortnite の画面を常時録画するため、「ファイル」→「設定」→「出力」→「リプレイバッファ」タブを開き、<strong>リプレイバッファを有効にする</strong> にチェックを入れてください。保存するリプレイの最大時間は試合の最大所要時間に合わせて設定します。（例: 1500 秒 = 25分）。Fortnite の試合は大体 25 分あれば十分です。<br>これにより、好きなタイミングで Fortnite の画面の 25 分間の動画をキャプチャすることが出来ます。</p>
+              <figure class="figure" style="margin-top: 12px">
+                <img src="./assets/img/01_03_obs_replay_buffer.png" alt="OBS のリプレイバッファ設定" loading="lazy" />
+                <figcaption>図 1.3 — リプレイバッファ有効化と最大時間（1500 秒）</figcaption>
+              </figure>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>WebSocket サーバーを有効化し、パスワードを取得する</strong>
+              <p>「ツール」→「WebSocket サーバー設定」を開き、<strong>WebSocket サーバーを有効にする</strong> にチェックを入れてください。</p>
+              <p>「サーバーパスワードを有効にする」をオンにし、表示されたパスワードをコピーしておきます。このパスワードは後述の <a href="#env"><code>services/log_monitor_api/.env</code></a>（<code>OBS_PASSWORD</code> 行）に貼り付けます。</p>
+              <div class="callout callout-note" style="margin-top: 12px">
+                <span class="callout-icon">💡</span>
+                <div class="callout-body">
+                  <span class="callout-title">パスワードの確認方法</span>
+                  <p>「ツール」→「WebSocket サーバー設定」→「接続情報を表示」ボタンからいつでも確認できます。</p>
+                </div>
+              </div>
+              <figure class="figure" style="margin-top: 12px">
+                <img src="./assets/img/01_04_obs_websocket.png" alt="OBS の WebSocket サーバー設定" loading="lazy" />
+                <figcaption>図 1.4 — WebSocket サーバー有効化（パスワードはマスク表示）</figcaption>
+              </figure>
+            </div>
+          </li>
+        </ol>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div class="callout-body">
+            <span class="callout-title">OBS が起動していない場合</span>
+            <p>OBS が停止中でも録画フォルダのパスは <code>config.json</code> に手動で指定できます。WebSocket 連携は OBS 起動中のみ有効です。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CLONE ── -->
+      <section id="clone">
+        <h2><span class="h2-num">3</span>リポジトリの取得</h2>
+        <p>任意の作業フォルダで以下を実行します。</p>
+        <div class="code-wrap">
+          <div class="code-header">
+            <span class="code-lang">shell</span>
+            <button class="copy-btn" type="button">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+              copy
+            </button>
+          </div>
+          <pre><code>git clone &lt;repository-url&gt; Fortnite_Replay_Util
+cd Fortnite_Replay_Util\Integrated_App</code></pre>
+        </div>
+        <p>以降の手順はすべて <code>Integrated_App/</code> 直下で実行することを想定しています。</p>
+      </section>
+
+      <!-- ── PYTHON ── -->
+      <section id="python">
+        <h2><span class="h2-num">4</span>Python 環境</h2>
+        <ol class="steps">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>仮想環境を作成</strong>
+              <div class="code-wrap">
+                <div class="code-header">
+                  <span class="code-lang">powershell</span>
+                  <button class="copy-btn" type="button">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                    copy
+                  </button>
+                </div>
+                <pre><code>python -m venv ..\venv</code></pre>
+              </div>
+              <p><code>Integrated_App/</code> の 1 つ上に <code>venv/</code> を作るのがプロジェクト規約です。</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>仮想環境を有効化</strong>
+              <div class="code-wrap">
+                <div class="code-header">
+                  <span class="code-lang">powershell</span>
+                  <button class="copy-btn" type="button">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                    copy
+                  </button>
+                </div>
+                <pre><code>..\venv\Scripts\Activate.ps1</code></pre>
+              </div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>依存パッケージをインストール</strong>
+              <div class="code-wrap">
+                <div class="code-header">
+                  <span class="code-lang">powershell</span>
+                  <button class="copy-btn" type="button">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                    copy
+                  </button>
+                </div>
+                <pre><code>pip install -r services\requirements.txt</code></pre>
+              </div>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <!-- ── FRONTEND ── -->
+      <section id="frontend">
+        <h2><span class="h2-num">5</span>フロントエンド</h2>
+        <div class="code-wrap">
+          <div class="code-header">
+            <span class="code-lang">powershell</span>
+            <button class="copy-btn" type="button">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+              copy
+            </button>
+          </div>
+          <pre><code>cd frontend
+npm install
+cd ..</code></pre>
+        </div>
+        <p><code>npm install</code> は初回のみ数分かかります。完了すると <code>frontend/node_modules/</code> が作成されます。</p>
+      </section>
+
+      <!-- ── DOTNET ── -->
+      <section id="dotnet">
+        <h2><span class="h2-num">6</span>.NET パーサ</h2>
+        <p><code>.replay</code> のパースは C# の <code>replay_parser</code> サービスが担当します。初回起動時に自動ビルドされるため、ここでは依存物の確認だけ行います。</p>
+        <div class="code-wrap">
+          <div class="code-header">
+            <span class="code-lang">shell</span>
+            <button class="copy-btn" type="button">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+              copy
+            </button>
+          </div>
+          <pre><code>dotnet --list-sdks</code></pre>
+        </div>
+        <p>一覧に <code>9.0.x</code> が含まれていれば OK です。</p>
+      </section>
+
+      <!-- ── CONFIG ── -->
+      <section id="config">
+        <h2><span class="h2-num">7</span>初期設定ファイル</h2>
+        <p>設定は <code>~/.fortnite-suite/config.json</code> に保存されます。初回はテンプレートを生成します。</p>
+        <div class="code-wrap">
+          <div class="code-header">
+            <span class="code-lang">powershell</span>
+            <button class="copy-btn" type="button">
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+              copy
+            </button>
+          </div>
+          <pre><code>python scripts\init_config.py</code></pre>
+        </div>
+        <p>以下の 4 項目を実環境に合わせて編集してください。</p>
+
+        <table>
+          <thead>
+            <tr><th>キー (API 上)</th><th>内容</th><th>例</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>user_player_id</code></td>
+              <td>自分の Epic 表示名。動画候補の絞り込みに使用</td>
+              <td><code>YourEpicName</code></td>
+            </tr>
+            <tr>
+              <td><code>demos_dir</code></td>
+              <td>Fortnite の <code>.replay</code> が置かれるフォルダ</td>
+              <td><code>C:\Users\you\AppData\Local\...\Demos</code></td>
+            </tr>
+            <tr>
+              <td><code>obs_recording_dir</code></td>
+              <td>OBS の録画保存フォルダ（起動中なら WebSocket から自動取得）</td>
+              <td><code>D:\OBS\Recordings</code></td>
+            </tr>
+            <tr>
+              <td><code>log_path</code></td>
+              <td>Fortnite のログファイルパス</td>
+              <td><code>C:\Users\you\AppData\Local\...\FortniteGame.log</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">ディスク上の構造</span>
+            <p><code>config.json</code> は内部的にネスト構造（<code>player.epic_display_name</code> など）で保存されますが、API 経由では上の表のフラットなキーで読み書きできます。UI の「設定」ページから編集する場合は気にする必要はありません。</p>
+          </div>
+        </div>
+
+        <figure class="figure">
+          <img src="./assets/img/01_05_settings_filled.png" alt="設定ページ（/settings）で 4 項目を入力した状態" loading="lazy" />
+          <figcaption>図 1.5 — 初期設定の入力例（/settings ページ）</figcaption>
+        </figure>
+      </section>
+
+      <!-- ── ENV (OBS_PASSWORD) ── -->
+      <section id="env">
+        <h2><span class="h2-num">8</span>OBS パスワードの設定 (.env)</h2>
+        <p>OBS WebSocket への接続情報は <code>services/log_monitor_api/.env</code> に保存します。<code>config.json</code> ではなく <strong>このファイル</strong>に設定する点に注意してください。</p>
+
+        <ol class="steps">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>テンプレートをコピー</strong>
+              <div class="code-wrap">
+                <div class="code-header">
+                  <span class="code-lang">powershell</span>
+                  <button class="copy-btn" type="button">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                    copy
+                  </button>
+                </div>
+                <pre><code>copy services\log_monitor_api\.env.example services\log_monitor_api\.env</code></pre>
+              </div>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>OBS_PASSWORD を書き換える</strong>
+              <p>テキストエディタで <code>services/log_monitor_api/.env</code> を開き、<code>OBS_PASSWORD=</code> 行の右辺を Step 2-3 でコピーした実パスワードに置き換えます。</p>
+              <div class="code-wrap">
+                <div class="code-header">
+                  <span class="code-lang">env</span>
+                </div>
+                <pre><code>OBS_HOST=localhost
+OBS_PORT=4455
+OBS_PASSWORD=&lt;OBS で取得した実パスワード&gt;
+OBS_SAVE_DELAY=10</code></pre>
+              </div>
+            </div>
+          </li>
+        </ol>
+
+        <table>
+          <thead>
+            <tr><th>キー</th><th>用途</th><th>既定値</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>OBS_HOST</code></td>
+              <td>OBS WebSocket のホスト</td>
+              <td><code>localhost</code></td>
+            </tr>
+            <tr>
+              <td><code>OBS_PORT</code></td>
+              <td>OBS WebSocket のポート</td>
+              <td><code>4455</code></td>
+            </tr>
+            <tr>
+              <td><code>OBS_PASSWORD</code></td>
+              <td>§2 Step 3 で設定した WebSocket パスワード</td>
+              <td>（必須）</td>
+            </tr>
+            <tr>
+              <td><code>OBS_SAVE_DELAY</code></td>
+              <td>ロビー戻り検出からリプレイバッファ保存までの秒数</td>
+              <td><code>10</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div class="callout-body">
+            <span class="callout-title">.env は Git 管理対象外</span>
+            <p><code>.env</code> は <code>.gitignore</code> に登録されており、コミットされません。実パスワードを誤って公開リポジトリに push しないための仕組みです。新しい PC にセットアップする際は毎回手動で再設定してください。</p>
+          </div>
+        </div>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">利用するサービス</span>
+            <p>この <code>.env</code> は <code>log_monitor_api</code> と <code>suite_core</code> の両方が読み込みます。後者は OBS WebSocket 経由で「OBS の録画フォルダ」を自動取得する用途で利用します。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── VERIFY ── -->
+      <section id="verify">
+        <h2><span class="h2-num">9</span>セットアップ確認</h2>
+        <ol class="steps">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>全サービス起動</strong>
+              <div class="code-wrap">
+                <div class="code-header">
+                  <span class="code-lang">powershell</span>
+                  <button class="copy-btn" type="button">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                    copy
+                  </button>
+                </div>
+                <pre><code>pwsh scripts\start.ps1</code></pre>
+              </div>
+              <p>6 サービス分の起動ログ（PID）が出れば OK。</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>疎通確認</strong>
+              <div class="code-wrap">
+                <div class="code-header">
+                  <span class="code-lang">powershell</span>
+                  <button class="copy-btn" type="button">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                    copy
+                  </button>
+                </div>
+                <pre><code>python scripts\smoke.py</code></pre>
+              </div>
+              <p>全 6 行が <span class="badge badge-ok">OK</span> で終了コード 0 なら成功。</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>フロント起動</strong>
+              <div class="code-wrap">
+                <div class="code-header">
+                  <span class="code-lang">powershell</span>
+                  <button class="copy-btn" type="button">
+                    <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/></svg>
+                    copy
+                  </button>
+                </div>
+                <pre><code>cd frontend
+npm run dev</code></pre>
+              </div>
+              <p>ブラウザで <code>http://localhost:5173</code> を開き、左サイドバーに 6 リンクが表示されていれば OK。</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="callout callout-ok">
+          <span class="callout-icon">✓</span>
+          <div class="callout-body">
+            <span class="callout-title">セットアップ完了</span>
+            <p>ここまで成功していれば基本セットアップは完了です。次章で日常の起動/停止の流れを押さえましょう。</p>
+          </div>
+        </div>
+
+        <figure class="figure">
+          <img src="./assets/img/01_06_smoke_ok.png" alt="smoke.py が全 OK を返した PowerShell 画面" loading="lazy" />
+          <figcaption>図 1.6 — 疎通確認の成功例（smoke.py 全 OK）</figcaption>
+        </figure>
+      </section>
+
+      <!-- PAGER -->
+      <nav class="pager">
+        <a href="./index.html">
+          <span class="pager-label">← 戻る</span>
+          <span class="pager-title">目次</span>
+        </a>
+        <a class="next" href="./02_startup.html">
+          <span class="pager-label">次へ →</span>
+          <span class="pager-title">02. 起動と停止</span>
+        </a>
+      </nav>
+
+    </article>
+  </main>
+
+  <!-- TWEAKS PANEL -->
+  <div id="tweaks-panel">
+    <div class="tweaks-hd"><span class="tweaks-dot"></span>Tweaks</div>
+    <div class="tweaks-bd">
+      <div class="tweaks-lbl">テーマ</div>
+      <div class="tw-themes">
+        <div class="tw-opt" data-t="void">
+          <div class="tw-swatch" style="background:linear-gradient(135deg,#05090f,#3bbdf2)"></div>
+          <div><div class="tw-name">Void</div><span class="tw-sub">Fortniteブルー · モダン</span></div>
+        </div>
+        <div class="tw-opt" data-t="terminal">
+          <div class="tw-swatch" style="background:linear-gradient(135deg,#070b07,#4ade80)"></div>
+          <div><div class="tw-name">Terminal</div><span class="tw-sub">グリーン · モノスペース</span></div>
+        </div>
+        <div class="tw-opt" data-t="copper">
+          <div class="tw-swatch" style="background:linear-gradient(135deg,#0f0d0b,#e8895a)"></div>
+          <div><div class="tw-name">Copper</div><span class="tw-sub">ウォームオレンジ · エディトリアル</span></div>
+        </div>
+      </div>
+      <div class="tweaks-lbl" style="margin-top:12px">モード</div>
+      <div class="tw-mode">
+        <button class="tw-mode-btn active" data-m="dark">☾ Dark</button>
+        <button class="tw-mode-btn" data-m="light">☀ Light</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

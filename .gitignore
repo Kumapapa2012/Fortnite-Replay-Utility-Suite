@@ -1,0 +1,186 @@
+# =====================================================================
+#  Fortnite Replay Suite — .gitignore
+#  Repository root = Integrated_App/   (see README "../__Individual_Apps/")
+# =====================================================================
+
+# ---------------------------------------------------------------------
+#  Secrets & runtime state  (絶対にコミットしない)
+# ---------------------------------------------------------------------
+.env
+.env.local
+.env.*.local
+services/*/.env
+!services/*/.env.example
+!services/*/.env.sample
+
+# ユーザ別設定（ホーム配下なので通常入らないが、誤コピー対策）
+config.local.json
+**/fortnite-suite/config.json
+
+# プロセス管理 / 動作ログ
+.run/
+logs/
+*.log
+!frontend/src/**/*.log.ts        # ソース内のサンプル/型定義は許容
+
+# ---------------------------------------------------------------------
+#  Build output
+# ---------------------------------------------------------------------
+dist/
+build/
+out/
+frontend/dist/
+frontend/.vite/
+frontend/tsconfig.tsbuildinfo
+
+# Vite / esbuild キャッシュ
+.vite/
+.cache/
+.parcel-cache/
+
+# ---------------------------------------------------------------------
+#  Python
+# ---------------------------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ---------------------------------------------------------------------
+#  Node.js / Frontend
+# ---------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+.yarn/
+.npm/
+
+# ---------------------------------------------------------------------
+#  .NET (replay_parser)
+# ---------------------------------------------------------------------
+services/replay_parser/bin/
+services/replay_parser/obj/
+**/[Bb]in/
+**/[Oo]bj/
+*.user
+*.suo
+*.userprefs
+*.userosscache
+*.sln.docstates
+.vs/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# ---------------------------------------------------------------------
+#  map_api 生成物 / 大容量メディア
+# ---------------------------------------------------------------------
+# map_tool は起動時に最新マップを取得して合成する（再生成可能）
+services/map_api/map_tool/combined_map.webp
+services/map_api/map_tool/maps/
+services/map_api/map_tool/node_modules/
+
+# 過去にサンプルとして混入した個別リプレイ出力（公開不要）
+services/map_api/Working/
+services/map_api/UnsavedReplay-*.json
+services/map_api/UnsavedReplay-*.png
+services/map_api/replay*_locations.json
+services/map_api/replay*_map.png
+services/map_api/replay*_map (*).png
+services/map_api/replay*.json
+!services/map_api/base_params.json
+
+# replay_parser に動画素材が混入していたら除外
+services/replay_parser/Videos/*.mp4
+services/replay_parser/Videos/*.mkv
+services/replay_parser/Videos/*.mov
+
+# ---------------------------------------------------------------------
+#  リプレイ / 動画 / スクリーンショットの実データ
+# ---------------------------------------------------------------------
+*.replay
+*.replay.bak
+FortniteGame.log*
+
+# 録画動画は repo に入れない（巨大）
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.wmv
+*.flv
+*.webm
+# ただし user_guide のドキュメント用画像/動画素材は許容（無ければ問題なし）
+!docs/user_guide/assets/**/*.mp4
+!docs/user_guide/assets/**/*.webm
+
+# 大容量画像は基本許容するが、ユーザのスクショ作業用は弾く
+*_screenshot_*.png
+*_screencap_*.png
+
+# ---------------------------------------------------------------------
+#  作業用 / 一時 / アーカイブ
+# ---------------------------------------------------------------------
+__temp/
+**/Archive/
+**/_archive/
+**/Trash/
+*.bak
+*.backup
+*.orig
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Docx は配布資産に含めない（user_guide 元データはローカル管理）
+*.docx
+!docs/templates/**/*.docx       # テンプレートとして残す物だけ許可
+
+# ---------------------------------------------------------------------
+#  OS / Editors / IDE
+# ---------------------------------------------------------------------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS / Linux（マルチ環境保険）
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# VS Code / JetBrains
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.iml
+
+# Claude Code（個人設定）
+.claude/
+
+# ---------------------------------------------------------------------
+#  パッケージマネージャ lock の方針
+# ---------------------------------------------------------------------
+# package-lock.json は追跡する（再現性確保）
+# requirements.txt は追跡する
+# pip freeze の生 dump は弾く
+requirements-frozen.txt

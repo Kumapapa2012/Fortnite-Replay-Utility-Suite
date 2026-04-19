@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="void" data-mode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>07. トラブルシュート — Fortnite Replay Suite</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <script src="./assets/app.js" defer></script>
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="page-header">
+    <div class="brand">
+      <a href="./index.html">
+        <span class="logo">FR</span>
+        <span>Fortnite Replay Suite</span>
+      </a>
+      <span class="badge">User Guide</span>
+      <span style="font-size:13px; color: var(--muted); font-weight:500; margin-left:4px;">トラブルシュート</span>
+    </div>
+    <nav class="header-nav">
+      <a href="./index.html">ホーム</a>
+      <button class="mode-btn" data-mode-toggle type="button">☀ Light</button>
+    </nav>
+  </header>
+
+  <main class="page">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <p class="sidebar-heading">本章の内容</p>
+        <ul class="sidebar-list" id="toc">
+          <li><a href="#overview"><span class="sn">—</span>概要</a></li>
+          <li><a href="#triage"><span class="sn">1</span>切り分けの基本フロー</a></li>
+          <li><a href="#startup"><span class="sn">2</span>サービスが起動しない</a></li>
+          <li><a href="#unreachable"><span class="sn">3</span>応答しない / 503</a></li>
+          <li><a href="#obs"><span class="sn">4</span>OBS 連携が動かない</a></li>
+          <li><a href="#trim"><span class="sn">5</span>動画トリミングが失敗</a></li>
+          <li><a href="#replay-detail"><span class="sn">6</span>リプレイ詳細が出ない</a></li>
+          <li><a href="#log-monitor"><span class="sn">7</span>ログ監視が無反応</a></li>
+          <li><a href="#scenarios"><span class="sn">8</span>障害挙動の確認シナリオ</a></li>
+          <li><a href="#log-locations"><span class="sn">9</span>ログの場所一覧</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-heading">他の章</p>
+        <div class="sidebar-chapters">
+          <a href="./01_setup.html"><span class="cn">01</span>セットアップ</a>
+          <a href="./02_startup.html"><span class="cn">02</span>起動と停止</a>
+          <a href="./03_dashboard_settings.html"><span class="cn">03</span>ダッシュボード &amp; 設定</a>
+          <a href="./04_matches_replays.html"><span class="cn">04</span>マッチとリプレイ</a>
+          <a href="./05_videos.html"><span class="cn">05</span>動画トリミング</a>
+          <a href="./06_logs.html"><span class="cn">06</span>ログ監視</a>
+        </div>
+      </div>
+    </aside>
+
+    <article class="content">
+
+      <section id="overview">
+        <div style="position:relative; overflow:hidden; margin-bottom:40px;">
+          <div class="chapter-bg-num">07</div>
+          <div class="chapter-eyebrow">Chapter 07</div>
+          <h1>トラブルシュート</h1>
+          <p class="lead">「動かない」「画面が真っ白」「バッジが緑にならない」など、運用中に遭遇しやすい症状の切り分け手順とログ参照ポイントをまとめます。</p>
+        </div>
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">まず最初に試すこと</span>
+            <p>多くの問題は <code>pwsh scripts\stop.ps1</code> → <code>pwsh scripts\start.ps1</code> → <code>python scripts\smoke.py</code> の 3 連打で解消します。それでも直らない場合のみ、本章の個別項目に進んでください。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="triage">
+        <h2><span class="h2-num">1</span>切り分けの基本フロー</h2>
+        <p>「フロント表示がおかしい」と感じたら、まず次の 3 段階で切り分けます。</p>
+
+        <ol class="steps">
+          <li>
+            <strong>smoke.py で全サービスの応答を確認</strong>
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">powershell</span></div>
+              <pre><code>python scripts\smoke.py
+python scripts\smoke.py --direct</code></pre>
+            </div>
+            <p style="margin-top:8px;">既定モードと <code>--direct</code> モードの結果を比べて、Gateway 経由のみ FAIL か、サービス本体も FAIL かを判定します。</p>
+          </li>
+          <li>
+            <strong>status.ps1 でプロセスの生死を確認</strong>
+            <div class="code-wrap">
+              <div class="code-header"><span class="code-lang">powershell</span></div>
+              <pre><code>pwsh scripts\status.ps1</code></pre>
+            </div>
+            <p style="margin-top:8px;">PID は実在するのに smoke が FAIL = ポート bind 失敗や起動途中のクラッシュ。両方 not running なら起動失敗（§2 へ）。</p>
+          </li>
+          <li>
+            <strong>logs/&lt;service&gt;.err.log を読む</strong>
+            <p>FAIL になっているサービスの <code>err.log</code> 末尾に、ほぼ確実に原因の Python 例外 / .NET 例外 / バインドエラーが残っています。</p>
+          </li>
+        </ol>
+      </section>
+
+      <section id="startup">
+        <h2><span class="h2-num">2</span>サービスが起動しない</h2>
+
+        <h3 style="margin-top:24px; font-size:18px;">2.1 ポート衝突 (address already in use)</h3>
+        <p><code>start.ps1</code> 出力や <code>err.log</code> に <code>address already in use</code> が出るパターン。前回の <code>stop.ps1</code> が失敗してプロセスが残っているケースが大半です。</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">powershell</span></div>
+          <pre><code>pwsh scripts\kill_by_port.ps1 -Port 8080</code></pre>
+        </div>
+        <p>該当ポートを掴んでいる PID を強制終了します。Gateway (8080) / replay_parser (12345) / log_monitor (8000) / map (8001) / prepare_upload (8002) / suite_core (8003) のうち、衝突しているポートを指定してください。</p>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div class="callout-body">
+            <span class="callout-title">12345 (replay_parser) の衝突</span>
+            <p>このポートはハードコードのため、他アプリと衝突したら相手側を止めるしかありません。.NET 側のコード修正（<code>Program.cs</code>）が必要なため、緊急回避手段として留めてください。</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:24px; font-size:18px;">2.2 ヘルスチェックでタイムアウト</h3>
+        <ul>
+          <li><strong>Python サービス（log_monitor / map / prepare_upload / suite_core）</strong>: <code>logs/&lt;svc&gt;.err.log</code> に <code>ModuleNotFoundError</code> → <code>../venv</code> への <code>pip install -r services/requirements.txt</code> 漏れ</li>
+          <li><strong>.NET サービス（replay_parser）</strong>: <code>It was not possible to find any compatible framework version</code> → .NET 9 SDK が未インストール</li>
+          <li><strong>Suite Core が config 読み込みエラー</strong>: <code>~/.fortnite-suite/config.json</code> が JSON として壊れている。<code>assets/config.template.json</code> から復元するか、空 <code>{}</code> にして起動</li>
+        </ul>
+      </section>
+
+      <section id="unreachable">
+        <h2><span class="h2-num">3</span>サービスは上がっているが応答しない / 503</h2>
+
+        <p>フロントから 503 が頻発する場合、まず Gateway の <code>/health</code> でどの上流が落ちているかを特定します。</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">powershell</span></div>
+          <pre><code>curl http://localhost:8080/health</code></pre>
+        </div>
+        <p>応答 JSON 内の <code>upstreams</code> に各サービスの reachable 状況が出ます。落ちているサービスの <code>logs/&lt;svc&gt;.log</code> を確認し、必要なら全停止 → 全起動で復旧させてください。</p>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">Prepare Upload の <code>/health</code> と <code>/api/health</code> は別物</span>
+            <p><code>/health</code> は<strong>死活確認</strong>（<code>{status, service, ts}</code>）、<code>/api/health</code> は <strong>ffmpeg/ffprobe の検出結果</strong>（<code>{ffmpeg: {...}, ffprobe: {...}}</code>）です。Gateway 経由でも同様（<code>/api/prepare-upload/health</code> vs <code>/api/prepare-upload/api/health</code>）。混同しないでください。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="obs">
+        <h2><span class="h2-num">4</span>OBS 連携が動かない</h2>
+        <p>設定ページの「OBS 録画フォルダ」バッジが <strong>緑（OBS WebSocket）にならない</strong>場合は、次のチェックリストを順番に確認します。</p>
+
+        <table>
+          <thead>
+            <tr><th>確認項目</th><th>NG 時の対処</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>OBS Studio が起動しているか</td>
+              <td>OBS を起動 → suite_core を再起動（<code>stop.ps1</code> + <code>start.ps1</code>）</td>
+            </tr>
+            <tr>
+              <td>OBS の Tools → WebSocket Server Settings で「Enable WebSocket server」がオンか</td>
+              <td>有効化、ポート 4455 / 認証パスワードを確認</td>
+            </tr>
+            <tr>
+              <td><code>services/log_monitor_api/.env</code> の <code>OBS_HOST</code> / <code>OBS_PORT</code> / <code>OBS_PASSWORD</code> が OBS 側と一致しているか</td>
+              <td>不一致なら .env を編集（<a href="./01_setup.html#env">01 章 §8</a> 参照）</td>
+            </tr>
+            <tr>
+              <td>OBS を後から起動した</td>
+              <td>取得元判定は suite_core 起動時に 1 回だけ。<code>stop.ps1</code> + <code>start.ps1</code> で再検出させる</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">OBS が落ちていてもアプリは使える</span>
+            <p>OBS WebSocket 接続失敗時は <code>config.json</code> の <code>obs_recording_dir</code>、それも無ければ既定値（<code>%USERPROFILE%/Videos</code>）にフォールバックします。バッジが「設定ファイル」「既定値」なのは異常ではなく、その値を使って動画一覧が出ていれば運用には支障ありません。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="trim">
+        <h2><span class="h2-num">5</span>動画トリミングが失敗する</h2>
+
+        <h3 style="margin-top:24px; font-size:18px;">5.1 ヘッダの ffmpeg/ffprobe バッジが赤（FAIL）</h3>
+        <p>ffmpeg / ffprobe が PATH に通っていません。<a href="https://ffmpeg.org/download.html#build-windows" target="_blank" rel="noopener">公式ビルド</a>を解凍し、<code>bin/</code> をシステム環境変数 <code>PATH</code> に追加 → 全サービス再起動。</p>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">powershell</span></div>
+          <pre><code>ffmpeg -version
+ffprobe -version</code></pre>
+        </div>
+        <p>新しい PowerShell セッションで上記が動けば OK。動かない場合は環境変数の設定後に新しいウィンドウを開き直してください。</p>
+
+        <h3 style="margin-top:24px; font-size:18px;">5.2 候補が空 / 「対応する動画がありません」</h3>
+        <ul>
+          <li>選択した <code>.replay</code> の試合時刻と、録画動画のタイムスタンプが重なっていない</li>
+          <li>OBS の録画ファイルが選択リプレイの試合より<strong>後に作成された</strong>（よくある）</li>
+          <li><code>obs_recording_dir</code> が間違ったフォルダを指している → <a href="./03_dashboard_settings.html#fields">設定ページ</a>で確認</li>
+        </ul>
+
+        <h3 style="margin-top:24px; font-size:18px;">5.3 トリミング実行で 500 エラー</h3>
+        <ul>
+          <li>出力先ディスクが容量不足</li>
+          <li>入力動画が破損 / 部分的に書き込み中（OBS 録画停止前のファイルを掴んでいる）</li>
+          <li><code>logs/prepare_upload.err.log</code> に ffmpeg のエラー出力が残るので、ここから判別</li>
+        </ul>
+      </section>
+
+      <section id="replay-detail">
+        <h2><span class="h2-num">6</span>リプレイ詳細が表示されない / 試合情報が空のまま</h2>
+        <p>マッチ詳細で「人間プレイヤー数 / Bot 数」が空のままになる、リプレイ詳細でテキストが出ないケース。</p>
+        <ul>
+          <li><strong>初回は数秒かかる</strong>のが正常動作です。.NET の <code>replay_parser</code> が <code>.replay</code> をパースする時間です。2 回目以降は suite_core キャッシュで即時表示</li>
+          <li>10 秒以上待っても出ない場合は <code>logs/replay_parser.err.log</code> を確認。<code>FortniteReplayReader</code> 系の例外が出ていれば、Fortnite のバージョン更新でフォーマットが変わった可能性があります（パーサのアップデート待ち）</li>
+          <li>巨大リプレイ（200MB 超）/ 破損ファイルでも JSON 生成に失敗します。該当 <code>.replay</code> を別ツールで開けるか確認</li>
+        </ul>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">UI 側は null を許容</span>
+            <p><code>replay_summary</code> が null でもマッチ詳細の「試合情報」セクションだけは（時刻と長さで）表示されるよう作ってあります。他ページへの影響もありません。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="log-monitor">
+        <h2><span class="h2-num">7</span>ログ監視がイベントを拾わない</h2>
+
+        <h3 style="margin-top:24px; font-size:18px;">7.1 「ログファイル(未検出)」バナーが出る</h3>
+        <p><code>config.json</code> の <code>log_path</code> が空、もしくは存在しないパスを指しています。設定ページで <code>%LOCALAPPDATA%\FortniteGame\Saved\Logs\FortniteGame.log</code> を入力し、保存してください。</p>
+
+        <h3 style="margin-top:24px; font-size:18px;">7.2 トグル ON でも何も流れない</h3>
+        <ul>
+          <li>Fortnite が起動していない → 正常動作（追記が無いので tail から何も出ない）</li>
+          <li>Fortnite 起動中なのに無反応 → <code>logs/log_monitor.err.log</code> を確認。<code>PermissionError</code> ならログファイルが他プロセスにロックされている</li>
+        </ul>
+
+        <h3 style="margin-top:24px; font-size:18px;">7.3 トグル UI が ON のまま戻らない</h3>
+        <p>サービス側の <code>/api/log-monitor/status</code> が真実、フロントのトグルはその投影です。<code>stop.ps1</code> 中に SSE が切断されると、稀にトグル表示だけ ON で残ります。<strong>ページをリロード</strong>するかページ移動すれば整合します。</p>
+      </section>
+
+      <section id="scenarios">
+        <h2><span class="h2-num">8</span>障害挙動の確認シナリオ</h2>
+        <p>新しいマシンで運用を始める前に、わざと壊した状態で UI が落ちないかを確認しておくと安心です。</p>
+
+        <table>
+          <thead>
+            <tr><th>シナリオ</th><th>期待挙動</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>prepare_upload_api</code> だけ止める</td>
+              <td><code>/videos</code> で「Prepare Upload に接続できません」系の通知。他ページは正常動作</td>
+            </tr>
+            <tr>
+              <td><code>~/.fortnite-suite/config.json</code> を空 <code>{}</code> にする</td>
+              <td><code>/settings</code> で既定値が表示され、新しい値で保存可能</td>
+            </tr>
+            <tr>
+              <td><code>ffmpeg.exe</code> を PATH から外して再起動</td>
+              <td><code>/videos</code> ヘッダに <code>FAIL</code> 赤バッジ、トリミングボタンが disabled</td>
+            </tr>
+            <tr>
+              <td><code>obs_recording_dir</code> を存在しないパスにする</td>
+              <td><code>/matches</code> は Replay のみで埋まり、Video バッジは灰色のまま</td>
+            </tr>
+            <tr>
+              <td>リプレイファイルを削除した状態で <code>/replays/:id</code> を開く</td>
+              <td>500 エラー + メッセージ。他ページは正常</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="log-locations">
+        <h2><span class="h2-num">9</span>ログの場所一覧</h2>
+        <p>調査時に見るべきファイルの早見表です。<code>&lt;service&gt;</code> は <code>gateway</code> / <code>replay_parser</code> / <code>log_monitor</code> / <code>map</code> / <code>prepare_upload</code> / <code>suite_core</code> のいずれか。</p>
+
+        <table>
+          <thead>
+            <tr><th>パス</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>logs/&lt;service&gt;.stdout.log</code></td>
+              <td>uvicorn / .NET の起動ログ・標準出力</td>
+            </tr>
+            <tr>
+              <td><code>logs/&lt;service&gt;.err.log</code></td>
+              <td>標準エラー・例外スタックトレース。<strong>まず最初に見る</strong></td>
+            </tr>
+            <tr>
+              <td><code>logs/&lt;service&gt;.log</code></td>
+              <td>アプリケーションロガーの構造化ログ</td>
+            </tr>
+            <tr>
+              <td><code>.run/&lt;service&gt;.pid</code></td>
+              <td><code>start.ps1</code> が記録した PID。<code>status.ps1</code> / <code>stop.ps1</code> はここを参照</td>
+            </tr>
+            <tr>
+              <td><code>~/.fortnite-suite/config.json</code></td>
+              <td>4 つの設定値の永続化先（<a href="./03_dashboard_settings.html#fields">03 章 §3</a> 参照）</td>
+            </tr>
+            <tr>
+              <td><code>services/log_monitor_api/.env</code></td>
+              <td>OBS WebSocket 認証情報（<a href="./01_setup.html#env">01 章 §8</a> 参照）</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">それでも解決しないとき</span>
+            <p><code>logs/</code> 配下を ZIP にまとめ、再現手順と <code>config.json</code>（<strong>パスワード等の秘密情報は除去</strong>）を添えて Issue 報告してください。多くの問題は <code>err.log</code> 末尾 50 行で原因が特定できます。</p>
+          </div>
+        </div>
+      </section>
+
+      <nav class="pager">
+        <a href="./06_logs.html">
+          <span class="pager-label">← 戻る</span>
+          <span class="pager-title">06. ログ監視</span>
+        </a>
+        <a class="next" href="./index.html">
+          <span class="pager-label">↑ トップへ</span>
+          <span class="pager-title">目次に戻る</span>
+        </a>
+      </nav>
+
+    </article>
+  </main>
+
+  <div id="tweaks-panel">
+    <div class="tweaks-hd"><span class="tweaks-dot"></span>Tweaks</div>
+    <div class="tweaks-bd">
+      <div class="tweaks-lbl">テーマ</div>
+      <div class="tw-themes">
+        <div class="tw-opt" data-t="void"><div class="tw-swatch" style="background:linear-gradient(135deg,#05090f,#3bbdf2)"></div><div><div class="tw-name">Void</div><span class="tw-sub">Fortniteブルー · モダン</span></div></div>
+        <div class="tw-opt" data-t="terminal"><div class="tw-swatch" style="background:linear-gradient(135deg,#070b07,#4ade80)"></div><div><div class="tw-name">Terminal</div><span class="tw-sub">グリーン · モノスペース</span></div></div>
+        <div class="tw-opt" data-t="copper"><div class="tw-swatch" style="background:linear-gradient(135deg,#0f0d0b,#e8895a)"></div><div><div class="tw-name">Copper</div><span class="tw-sub">ウォームオレンジ · エディトリアル</span></div></div>
+      </div>
+      <div class="tweaks-lbl" style="margin-top:12px">モード</div>
+      <div class="tw-mode">
+        <button class="tw-mode-btn active" data-m="dark">☾ Dark</button>
+        <button class="tw-mode-btn" data-m="light">☀ Light</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

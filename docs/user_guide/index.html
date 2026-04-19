@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="void" data-mode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fortnite Replay Suite — ユーザーガイド</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <script src="./assets/app.js" defer></script>
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="page-header">
+    <div class="brand">
+      <a href="./index.html">
+        <span class="logo">FR</span>
+        <span>Fortnite Replay Suite</span>
+      </a>
+      <span class="badge">User Guide</span>
+      <span style="font-size:13px; color: var(--muted); font-weight:500; margin-left:4px;">ホーム</span>
+    </div>
+    <nav class="header-nav">
+      <button class="mode-btn" data-mode-toggle type="button">☀ Light</button>
+    </nav>
+  </header>
+
+  <main class="page">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <p class="sidebar-heading">このページ</p>
+        <ul class="sidebar-list" id="toc-index">
+          <li><a href="#purpose"><span class="sn">—</span>このツールの目的</a></li>
+          <li><a href="#chapters"><span class="sn">—</span>章構成</a></li>
+          <li><a href="#requirements"><span class="sn">—</span>前提環境</a></li>
+          <li><a href="#about"><span class="sn">—</span>できること</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-heading">各章へ</p>
+        <div class="sidebar-chapters">
+          <a href="./01_setup.html"><span class="cn">01</span>セットアップ</a>
+          <a href="./02_startup.html"><span class="cn">02</span>起動と停止</a>
+          <a href="./03_dashboard_settings.html"><span class="cn">03</span>ダッシュボード &amp; 設定</a>
+          <a href="./04_matches_replays.html"><span class="cn">04</span>マッチとリプレイ</a>
+          <a href="./05_videos.html"><span class="cn">05</span>動画トリミング</a>
+          <a href="./06_logs.html"><span class="cn">06</span>ログ監視</a>
+          <a href="./07_troubleshoot.html"><span class="cn">07</span>トラブルシュート</a>
+        </div>
+      </div>
+    </aside>
+
+    <article class="content">
+
+      <!-- HERO -->
+      <section id="hero">
+        <div class="hero">
+          <div class="hero-eyebrow">User Guide · v1.0</div>
+          <h1>Fortnite<br>Replay Suite</h1>
+          <p class="lead">リプレイ・録画動画・ログを横断して扱う統合ツールキットのユーザーガイドです。セットアップから日常運用、トラブル時の対処までひと通り網羅しています。</p>
+          <div class="callout callout-note">
+            <span class="callout-icon">💡</span>
+            <div class="callout-body">
+              <span class="callout-title">このガイドの読み方</span>
+              <p>初めての方は <strong>01. セットアップ</strong> から順に読み進めてください。既に動いている環境であれば、目次から必要な章にジャンプできます。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PURPOSE -->
+      <section id="purpose">
+        <h2>このツールの目的</h2>
+
+        <div class="callout callout-warn" style="margin-bottom: 24px;">
+          <span class="callout-icon">⚠️</span>
+          <div class="callout-body">
+            <span class="callout-title">ソロ・バトルロイヤル専用で開発しています</span>
+            <p>本ツールはソロのバトルロイヤルモードのみを対象に開発・検証しています。他のモードでも動作する可能性はありますが、正常な動作は保証しません。</p>
+          </div>
+        </div>
+
+        <p>本ツールの中核となる機能は、Fortnite が生成する <code>.replay</code> ファイルの解析です。現時点では以下の情報を取得できます。</p>
+
+        <ul>
+          <li>試合に参加したプレイヤーの内訳（ボットプレイヤーと人間プレイヤーの数）</li>
+          <li>自分が獲得したキル数</li>
+          <li>自分を倒した相手プレイヤーの情報</li>
+        </ul>
+
+        <p><code>.replay</code> ファイルにはこれ以上に多くのデータが含まれています。ストームの軌跡や詳細なイベントログなど、今後のアップデートで取得できる情報を段階的に拡張していく予定です。</p>
+
+        <p>また、プレイヤーの移動軌跡を最新のマップ画像上にレンダリングする機能も搭載しています。試合中の立ち回りを視覚的に振り返ることができるため、勝ち筋となる移動パターンの分析や、ポジショニングの改善に役立てていただけます。</p>
+
+        <div class="callout callout-ok">
+          <span class="callout-icon">✦</span>
+          <div class="callout-body">
+            <span class="callout-title">もっと Fortnite を深く楽しむために</span>
+            <p>リプレイデータと録画動画を組み合わせることで、これまで見えなかった自分のプレイを客観的に分析できます。ぜひ毎試合の振り返りに活用してください。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- CHAPTERS -->
+      <section id="chapters">
+        <h2>章構成</h2>
+        <div class="chapter-grid">
+          <a class="chapter-card" href="./01_setup.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 01</span>
+            <h3>セットアップ</h3>
+            <p>必要なソフトウェア、リポジトリの取得、Python / Node / .NET の準備と初期設定。</p>
+          </a>
+          <a class="chapter-card" href="./02_startup.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 02</span>
+            <h3>起動と停止</h3>
+            <p>6 サービスの一括起動・状態確認・停止。フロントエンドの開発サーバー。</p>
+          </a>
+          <a class="chapter-card" href="./03_dashboard_settings.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 03</span>
+            <h3>ダッシュボード &amp; 設定</h3>
+            <p>ホーム画面の見方、各種パス設定、プレイヤー名の登録、テーマ切替。</p>
+          </a>
+          <a class="chapter-card" href="./04_matches_replays.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 04</span>
+            <h3>マッチとリプレイ</h3>
+            <p>試合ライブラリの使い方、リプレイ詳細の読み方、移動軌跡マップの確認。</p>
+          </a>
+          <a class="chapter-card" href="./05_videos.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 05</span>
+            <h3>動画トリミング</h3>
+            <p>リプレイ起点での動画絞り込み、オフセット候補、I フレーム精度のカット。</p>
+          </a>
+          <a class="chapter-card" href="./06_logs.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 06</span>
+            <h3>ログ監視</h3>
+            <p>Fortnite ログの追跡と SSE によるリアルタイム試合イベント受信。</p>
+          </a>
+          <a class="chapter-card" href="./07_troubleshoot.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 07</span>
+            <h3>トラブルシュート</h3>
+            <p>よくある症状と対処、サービスが起動しないときの確認順序、ログの場所。</p>
+          </a>
+        </div>
+      </section>
+
+      <!-- REQUIREMENTS -->
+      <section id="requirements">
+        <h2>前提環境</h2>
+        <ul>
+          <li>Windows 11（64bit）</li>
+          <li>Python 3.11 以降</li>
+          <li>.NET 9 SDK</li>
+          <li>Node.js 20 以降</li>
+          <li>ffmpeg / ffprobe（<code>PATH</code> が通っていること）</li>
+          <li><a href="https://obsproject.com/ja/download" target="_blank" rel="noopener">OBS Studio</a>（最新版）</li>
+          <li>Fortnite（<code>.replay</code> ファイルが既に 1 つ以上出力されていること推奨）</li>
+        </ul>
+        <p>詳細は <a href="./01_setup.html">01. セットアップ</a> を参照してください。</p>
+      </section>
+
+      <!-- ABOUT -->
+      <section id="about">
+        <h2>このツールでできること</h2>
+        <ul>
+          <li><strong>リプレイの可視化</strong> — <code>.replay</code> をパースして試合結果・キル/デス・移動軌跡マップを表示</li>
+          <li><strong>録画動画のトリミング</strong> — OBS の録画から、該当試合のキル/デス瞬間を I フレーム精度で切り出し</li>
+          <li><strong>マッチライブラリ</strong> — リプレイと録画動画を時刻で自動ペアリング</li>
+          <li><strong>ログ監視</strong> — Fortnite のログを tail して試合開始/終了をリアルタイム通知</li>
+        </ul>
+      </section>
+
+    </article>
+  </main>
+
+  <!-- TWEAKS PANEL -->
+  <div id="tweaks-panel">
+    <div class="tweaks-hd"><span class="tweaks-dot"></span>Tweaks</div>
+    <div class="tweaks-bd">
+      <div class="tweaks-lbl">テーマ</div>
+      <div class="tw-themes">
+        <div class="tw-opt" data-t="void">
+          <div class="tw-swatch" style="background:linear-gradient(135deg,#05090f,#3bbdf2)"></div>
+          <div><div class="tw-name">Void</div><span class="tw-sub">Fortniteブルー · モダン</span></div>
+        </div>
+        <div class="tw-opt" data-t="terminal">
+          <div class="tw-swatch" style="background:linear-gradient(135deg,#070b07,#4ade80)"></div>
+          <div><div class="tw-name">Terminal</div><span class="tw-sub">グリーン · モノスペース</span></div>
+        </div>
+        <div class="tw-opt" data-t="copper">
+          <div class="tw-swatch" style="background:linear-gradient(135deg,#0f0d0b,#e8895a)"></div>
+          <div><div class="tw-name">Copper</div><span class="tw-sub">ウォームオレンジ · エディトリアル</span></div>
+        </div>
+      </div>
+      <div class="tweaks-lbl" style="margin-top:12px">モード</div>
+      <div class="tw-mode">
+        <button class="tw-mode-btn active" data-m="dark">☾ Dark</button>
+        <button class="tw-mode-btn" data-m="light">☀ Light</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

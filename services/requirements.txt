@@ -1,0 +1,26 @@
+# Fortnite Replay Suite - Python 共通依存
+# 全 Python サービス（log_monitor_api / map_api / prepare_upload_api / suite_core）と
+# gateway/ が共有する単一 venv 用の依存定義。
+# 参考: docs/07_project_structure.md §4.3
+
+# === Web framework (gateway + 各 FastAPI ラッパ共通) ===
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+httpx>=0.27,<1.0
+python-multipart>=0.0.9
+
+# === 設定 & ユーティリティ ===
+pydantic>=2.5,<3.0
+pydantic-settings>=2.1,<3.0
+python-dotenv>=1.0,<2.0
+
+# === log_monitor_api 既存依存 ===
+psutil>=5.9
+obsws-python>=1.6
+
+# === map_api 既存依存 ===
+Pillow>=10.0
+
+# === 開発補助 (任意) ===
+# ruff
+# pytest

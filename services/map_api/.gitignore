@@ -1,0 +1,13 @@
+# Replay input files / 過去にサンプルとして混入した出力
+*_locations.json
+*_map.png
+replay*.json
+UnsavedReplay*.json
+*.replay
+
+# Working files
+Working/
+
+# Python
+__pycache__/
+*.pyc

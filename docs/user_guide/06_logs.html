@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="void" data-mode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>06. ログ監視 — Fortnite Replay Suite</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <script src="./assets/app.js" defer></script>
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="page-header">
+    <div class="brand">
+      <a href="./index.html">
+        <span class="logo">FR</span>
+        <span>Fortnite Replay Suite</span>
+      </a>
+      <span class="badge">User Guide</span>
+      <span style="font-size:13px; color: var(--muted); font-weight:500; margin-left:4px;">ログ監視</span>
+    </div>
+    <nav class="header-nav">
+      <a href="./index.html">ホーム</a>
+      <button class="mode-btn" data-mode-toggle type="button">☀ Light</button>
+    </nav>
+  </header>
+
+  <main class="page">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <p class="sidebar-heading">本章の内容</p>
+        <ul class="sidebar-list" id="toc">
+          <li><a href="#overview"><span class="sn">—</span>概要</a></li>
+          <li><a href="#logs-page"><span class="sn">1</span>ログ監視ページ</a></li>
+          <li><a href="#toggle"><span class="sn">2</span>監視のオン/オフ</a></li>
+          <li><a href="#events"><span class="sn">3</span>受信できるイベント</a></li>
+          <li><a href="#log-path"><span class="sn">4</span>ログパスの設定</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-heading">他の章</p>
+        <div class="sidebar-chapters">
+          <a href="./01_setup.html"><span class="cn">01</span>セットアップ</a>
+          <a href="./02_startup.html"><span class="cn">02</span>起動と停止</a>
+          <a href="./03_dashboard_settings.html"><span class="cn">03</span>ダッシュボード &amp; 設定</a>
+          <a href="./04_matches_replays.html"><span class="cn">04</span>マッチとリプレイ</a>
+          <a href="./05_videos.html"><span class="cn">05</span>動画トリミング</a>
+          <a href="./07_troubleshoot.html"><span class="cn">07</span>トラブルシュート</a>
+        </div>
+      </div>
+    </aside>
+
+    <article class="content">
+
+      <section id="overview">
+        <div style="position:relative; overflow:hidden; margin-bottom:40px;">
+          <div class="chapter-bg-num">06</div>
+          <div class="chapter-eyebrow">Chapter 06</div>
+          <h1>ログ監視</h1>
+          <p class="lead">Fortnite が出力するログファイルを tail し、試合開始 / 試合終了などのイベントを <strong>SSE (Server-Sent Events)</strong> でリアルタイム受信します。</p>
+        </div>
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">何に使う機能か</span>
+            <p>「いま試合中か」「直前のロビー戻りはいつか」を Fortnite を起動したまま検出できます。OBS のリプレイバッファ自動保存（log_monitor_api 内の OBS 連携）等のトリガーに利用されます。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="logs-page">
+        <h2><span class="h2-num">1</span>ログ監視ページ</h2>
+        <p>サイドバーの「ログ」または <code>/logs</code> を開くと、ログ監視のコントロールパネルが表示されます。初期状態では監視はオフ（イベントは流れない）です。</p>
+        <figure class="figure">
+          <img src="./assets/img/06_01_logs_off.png" alt="/logs ページ（監視オフ状態）" loading="lazy" />
+          <figcaption>図 6.1 — ログ監視ページ（初期状態）。トグルがオフ、ログパスのバナー表示</figcaption>
+        </figure>
+        <ul>
+          <li><strong>右上のトグル</strong>: 監視のオン/オフを切り替え</li>
+          <li><strong>ログパスバナー</strong>: 現在 tail 対象としている <code>log_path</code> の表示。未検出なら「ログファイル(未検出)」</li>
+          <li><strong>イベント表示エリア</strong>: 受信したイベントを時系列で追加表示</li>
+        </ul>
+      </section>
+
+      <section id="toggle">
+        <h2><span class="h2-num">2</span>監視のオン/オフ</h2>
+        <p>右上のトグルをオンにすると、ブラウザが <code>/api/log-monitor/events</code> に EventSource (SSE) 接続を開き、サーバ側でログファイルの tail が始まります。</p>
+        <figure class="figure">
+          <img src="./assets/img/06_02_logs_on_events.png" alt="/logs ページ（監視オン、イベント受信中）" loading="lazy" />
+          <figcaption>図 6.2 — 監視オン。Fortnite で 1 試合終わるたびに match_start / match_end が DOM に追加される</figcaption>
+        </figure>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">Fortnite が起動していない場合</span>
+            <p>tail 対象ファイルへの追記が無いため、何のイベントも流れません。これは正常動作です。</p>
+          </div>
+        </div>
+
+        <p>トグルをオフにすると、ブラウザ側で EventSource が close され、ブラウザの Network タブで <code>/api/log-monitor/events</code> が <code>finished</code> になります。サーバ側の tail も解放されます。</p>
+      </section>
+
+      <section id="events">
+        <h2><span class="h2-num">3</span>受信できるイベント</h2>
+        <table>
+          <thead>
+            <tr><th>イベント名</th><th>意味</th><th>検出契機</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>match_start</code></td>
+              <td>試合開始</td>
+              <td>ロビーから試合への投入を示すログ行を検出</td>
+            </tr>
+            <tr>
+              <td><code>match_end</code></td>
+              <td>試合終了</td>
+              <td>試合終了を示すログ行を検出（または続くロビー復帰）</td>
+            </tr>
+            <tr>
+              <td><code>obs_save</code></td>
+              <td>OBS リプレイバッファ保存</td>
+              <td>log_monitor_api 内の OBS 連携が <code>SaveReplayBuffer</code> を呼んだ際（OBS 連携有効時のみ）</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="log-path">
+        <h2><span class="h2-num">4</span>ログパスの設定</h2>
+        <p>tail 対象は <code>~/.fortnite-suite/config.json</code> の <code>log_path</code> で指定します。設定ページ（<a href="./03_dashboard_settings.html#fields">03 章 §3</a>）で編集できます。</p>
+
+        <div class="code-wrap">
+          <div class="code-header">
+            <span class="code-lang">既定例</span>
+          </div>
+          <pre><code>%LOCALAPPDATA%\FortniteGame\Saved\Logs\FortniteGame.log</code></pre>
+        </div>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div class="callout-body">
+            <span class="callout-title">ログファイルのローテーション</span>
+            <p>Fortnite は起動のたびに古いログを <code>FortniteGame.log.&lt;n&gt;.bak</code> にリネームし、新しい <code>FortniteGame.log</code> を作成します。監視中にゲームを再起動すると inode が変わるため、サーバ側は自動的に新ファイルへ追従します。</p>
+          </div>
+        </div>
+      </section>
+
+      <nav class="pager">
+        <a href="./05_videos.html">
+          <span class="pager-label">← 戻る</span>
+          <span class="pager-title">05. 動画トリミング</span>
+        </a>
+        <a class="next" href="./07_troubleshoot.html">
+          <span class="pager-label">次へ →</span>
+          <span class="pager-title">07. トラブルシュート</span>
+        </a>
+      </nav>
+
+    </article>
+  </main>
+
+  <div id="tweaks-panel">
+    <div class="tweaks-hd"><span class="tweaks-dot"></span>Tweaks</div>
+    <div class="tweaks-bd">
+      <div class="tweaks-lbl">テーマ</div>
+      <div class="tw-themes">
+        <div class="tw-opt" data-t="void"><div class="tw-swatch" style="background:linear-gradient(135deg,#05090f,#3bbdf2)"></div><div><div class="tw-name">Void</div><span class="tw-sub">Fortniteブルー · モダン</span></div></div>
+        <div class="tw-opt" data-t="terminal"><div class="tw-swatch" style="background:linear-gradient(135deg,#070b07,#4ade80)"></div><div><div class="tw-name">Terminal</div><span class="tw-sub">グリーン · モノスペース</span></div></div>
+        <div class="tw-opt" data-t="copper"><div class="tw-swatch" style="background:linear-gradient(135deg,#0f0d0b,#e8895a)"></div><div><div class="tw-name">Copper</div><span class="tw-sub">ウォームオレンジ · エディトリアル</span></div></div>
+      </div>
+      <div class="tweaks-lbl" style="margin-top:12px">モード</div>
+      <div class="tw-mode">
+        <button class="tw-mode-btn active" data-m="dark">☾ Dark</button>
+        <button class="tw-mode-btn" data-m="light">☀ Light</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

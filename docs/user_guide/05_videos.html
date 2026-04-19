@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="void" data-mode="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>05. 動画トリミング — Fortnite Replay Suite</title>
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <script src="./assets/app.js" defer></script>
+</head>
+<body>
+  <div id="read-progress"></div>
+
+  <header class="page-header">
+    <div class="brand">
+      <a href="./index.html">
+        <span class="logo">FR</span>
+        <span>Fortnite Replay Suite</span>
+      </a>
+      <span class="badge">User Guide</span>
+      <span style="font-size:13px; color: var(--muted); font-weight:500; margin-left:4px;">動画トリミング</span>
+    </div>
+    <nav class="header-nav">
+      <a href="./index.html">ホーム</a>
+      <button class="mode-btn" data-mode-toggle type="button">☀ Light</button>
+    </nav>
+  </header>
+
+  <main class="page">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <p class="sidebar-heading">本章の内容</p>
+        <ul class="sidebar-list" id="toc">
+          <li><a href="#overview"><span class="sn">—</span>概要</a></li>
+          <li><a href="#header"><span class="sn">1</span>ffmpeg / ffprobe ヘルス</a></li>
+          <li><a href="#pick-replay"><span class="sn">2</span>リプレイを選ぶ</a></li>
+          <li><a href="#filter"><span class="sn">3</span>候補動画の自動絞り込み</a></li>
+          <li><a href="#excluded"><span class="sn">4</span>除外動画の確認</a></li>
+          <li><a href="#pick-video"><span class="sn">5</span>動画を選ぶ</a></li>
+          <li><a href="#candidates"><span class="sn">6</span>オフセット候補の計算</a></li>
+          <li><a href="#keyframes"><span class="sn">7</span>キーフレーム選択</a></li>
+          <li><a href="#trim"><span class="sn">8</span>トリミング実行</a></li>
+        </ul>
+      </div>
+      <div class="sidebar-section">
+        <p class="sidebar-heading">他の章</p>
+        <div class="sidebar-chapters">
+          <a href="./01_setup.html"><span class="cn">01</span>セットアップ</a>
+          <a href="./02_startup.html"><span class="cn">02</span>起動と停止</a>
+          <a href="./03_dashboard_settings.html"><span class="cn">03</span>ダッシュボード &amp; 設定</a>
+          <a href="./04_matches_replays.html"><span class="cn">04</span>マッチとリプレイ</a>
+          <a href="./06_logs.html"><span class="cn">06</span>ログ監視</a>
+          <a href="./07_troubleshoot.html"><span class="cn">07</span>トラブルシュート</a>
+        </div>
+      </div>
+    </aside>
+
+    <article class="content">
+
+      <section id="overview">
+        <div style="position:relative; overflow:hidden; margin-bottom:40px;">
+          <div class="chapter-bg-num">05</div>
+          <div class="chapter-eyebrow">Chapter 05</div>
+          <h1>動画トリミング</h1>
+          <p class="lead">OBS で常時録画している動画から、リプレイの試合イベント（試合開始・キル・デス・試合終了）の瞬間を <strong>I フレーム精度</strong>で切り出します。</p>
+        </div>
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">フローはリプレイ起点</span>
+            <p>「リプレイを選ぶ → 該当試合を含みうる動画を絞る → 動画を選ぶ → 切り出し位置を選ぶ」の順で進みます。OBS のリプレイバッファ（既定 25 分）の中から、リプレイの試合時刻と重なる動画だけが自動で抽出されます。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="header">
+        <h2><span class="h2-num">1</span>ffmpeg / ffprobe ヘルス</h2>
+        <p>サイドバー「動画」または <code>/videos</code> を開くと、ページ上部に <code>ffmpeg</code> / <code>ffprobe</code> のバージョン情報が表示されます。<span class="badge badge-ok">OK</span> バッジが両方緑であることを最初に確認してください。</p>
+        <figure class="figure">
+          <img src="./assets/img/05_01_videos_header.png" alt="/videos ページのヘッダとリプレイ選択" loading="lazy" />
+          <figcaption>図 5.1 — ページヘッダ。ffmpeg / ffprobe バッジ + 「1. リプレイを選ぶ」テーブル</figcaption>
+        </figure>
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div class="callout-body">
+            <span class="callout-title">FAIL バッジが出る場合</span>
+            <p>ffmpeg/ffprobe が <code>PATH</code> 上に見つからないと <span class="badge badge-warn">FAIL</span> バッジが表示され、トリミングボタンも無効化されます。<a href="./01_setup.html#prerequisites">01 章 §1</a> で PATH を再確認してください。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="pick-replay">
+        <h2><span class="h2-num">2</span>リプレイを選ぶ</h2>
+        <p>「1. リプレイを選ぶ」テーブルから、振り返りたい試合のリプレイ行をクリックします。新しい順に並んでいます。</p>
+      </section>
+
+      <section id="filter">
+        <h2><span class="h2-num">3</span>候補動画の自動絞り込み</h2>
+        <p>リプレイを選ぶと自動的に <code>POST /api/prepare-upload/videos-for-replay</code> が走り、<code>obs_recording_dir</code> 配下から「その試合を含みうる動画」だけが抽出されてテーブル表示されます。</p>
+        <figure class="figure">
+          <img src="./assets/img/05_02_replay_selected.png" alt="リプレイ選択後の候補動画一覧" loading="lazy" />
+          <figcaption>図 5.2 — 「2. 候補の動画を選ぶ」。試合時刻 / リプレイバッファ / 候補件数 / 除外件数を表示</figcaption>
+        </figure>
+
+        <table>
+          <thead>
+            <tr><th>フィルタルール</th><th>判定基準</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>① 録画時刻ウィンドウ</td>
+              <td>動画の <strong>ファイル名 / mtime / ctime</strong> のいずれかが、試合終了時刻 ± リプレイバッファ秒の範囲内</td>
+            </tr>
+            <tr>
+              <td>② 動画長フィルタ</td>
+              <td>動画の <strong>duration</strong> &gt;= 試合長。試合長がリプレイバッファより長い場合はスキップ（注記あり）</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">リプレイバッファ秒の調整</span>
+            <p>判定に使うリプレイバッファ秒は <code>config.json</code> の <code>obs.replay_buffer_sec</code>（既定 1500 秒 = 25 分）。OBS 側の実設定（01 章 §2 Step 2）と揃えてください。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="excluded">
+        <h2><span class="h2-num">4</span>除外動画の確認</h2>
+        <p>テーブル下部の <code>&lt;details&gt;</code> 「除外された N 件を表示」を開くと、フィルタで弾かれた動画とその理由が一覧できます。期待している動画が候補に出てこない場合の切り分けに使ってください。</p>
+        <figure class="figure">
+          <img src="./assets/img/05_03_excluded_details.png" alt="除外された動画とその理由一覧" loading="lazy" />
+          <figcaption>図 5.3 — 除外動画一覧。各動画ごとに除外理由を表示</figcaption>
+        </figure>
+      </section>
+
+      <section id="pick-video">
+        <h2><span class="h2-num">5</span>動画を選ぶ</h2>
+        <p>候補動画一覧から行をクリックすると、その動画の <strong>0 秒地点</strong>のサムネイルとフルパスがテーブル下に表示されます。「これで合っているか」をビジュアルで確認するためのプレビューです。</p>
+        <figure class="figure">
+          <img src="./assets/img/05_04_thumbnail.png" alt="動画選択直後のサムネイルプレビュー" loading="lazy" />
+          <figcaption>図 5.4 — 動画選択後のサムネイル + パス + 「オフセット候補を計算」ボタン</figcaption>
+        </figure>
+        <p>動画が正しければ「<strong>オフセット候補を計算</strong>」ボタンを押して次に進みます。</p>
+      </section>
+
+      <section id="candidates">
+        <h2><span class="h2-num">6</span>オフセット候補の計算</h2>
+        <p>計算が完了すると「3. カット開始位置を選ぶ」セクションが現れ、リプレイから抽出された試合イベントごとのオフセット（動画の何秒目か）がボタン群として並びます。</p>
+        <figure class="figure">
+          <img src="./assets/img/05_05_candidates.png" alt="オフセット候補ボタン群" loading="lazy" />
+          <figcaption>図 5.5 — 候補ボタン。試合開始 / Kill / Death / 試合終了 が並ぶ</figcaption>
+        </figure>
+
+        <table>
+          <thead>
+            <tr><th>kind</th><th>意味</th><th>ラベル例</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>match_start</code></td>
+              <td>試合開始時刻</td>
+              <td><code>[match_start] 試合開始 — 12.3s</code></td>
+            </tr>
+            <tr>
+              <td><code>kill</code></td>
+              <td>自分が相手を倒した瞬間</td>
+              <td><code>[kill] Kill #2 @08:14 EnemyName — 642.3s</code></td>
+            </tr>
+            <tr>
+              <td><code>death</code></td>
+              <td>自分が倒された瞬間</td>
+              <td><code>[death] Death ← KillerName — 1234.5s</code></td>
+            </tr>
+            <tr>
+              <td><code>match_end</code></td>
+              <td>試合終了時刻</td>
+              <td><code>[match_end] 試合終了 — 1456.7s</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">自分が絡むイベントだけ表示されます</span>
+            <p><a href="./03_dashboard_settings.html#fields"><code>config.user_player_id</code></a>（player.epic_display_name）が設定されていれば、Kill / Death の候補は「自分が Killer または Victim の試合イベント」だけに絞り込まれます。未設定の場合は全イベントが並びます。</p>
+          </div>
+        </div>
+
+        <p>切り出したいイベントのボタンをクリックすると青枠で選択状態になり、その下の「<strong>この時刻の前後 10 秒でキーフレーム検索</strong>」ボタンが活性化します。</p>
+      </section>
+
+      <section id="keyframes">
+        <h2><span class="h2-num">7</span>キーフレーム選択</h2>
+        <p>キーフレーム検索ボタンを押すと、選んだオフセット ±10 秒の範囲にある I フレーム（キーフレーム）の一覧が「4. キーフレームを選ぶ」セクションに表示されます。</p>
+        <figure class="figure">
+          <img src="./assets/img/05_06_keyframes.png" alt="I フレーム候補ボタン群" loading="lazy" />
+          <figcaption>図 5.6 — キーフレーム候補。HH:MM:SS.sss 表記でクリック可能なボタンが並ぶ</figcaption>
+        </figure>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">なぜ I フレームに合わせるか</span>
+            <p>ffmpeg で <strong>無劣化（コピーモード）</strong>で切り出すには、開始位置が I フレームである必要があります。任意の秒数で切ると再エンコードが発生し、画質劣化と長い処理時間が伴います。プリセットの ±10 秒範囲から自動で I フレームを拾うことで、無劣化トリミングを保証します。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="trim">
+        <h2><span class="h2-num">8</span>トリミング実行</h2>
+        <p>I フレームのボタンを 1 つ選び、緑の「<strong>ここから末尾まで切り出す</strong>」ボタンをクリックすると、その位置から動画の末尾までを <code>obs_recording_dir</code> 配下に出力します。</p>
+        <figure class="figure">
+          <img src="./assets/img/05_07_trim_done.png" alt="トリミング完了後の出力パス表示" loading="lazy" />
+          <figcaption>図 5.7 — トリミング完了。出力パス + サイズ + 長さを表示</figcaption>
+        </figure>
+
+        <div class="callout callout-ok">
+          <span class="callout-icon">✓</span>
+          <div class="callout-body">
+            <span class="callout-title">処理時間の目安</span>
+            <p>無劣化のストリームコピーで処理されるため、再エンコードは発生しません。出力サイズと尺によりますが、数秒〜十数秒で完了します。</p>
+          </div>
+        </div>
+      </section>
+
+      <nav class="pager">
+        <a href="./04_matches_replays.html">
+          <span class="pager-label">← 戻る</span>
+          <span class="pager-title">04. マッチとリプレイ</span>
+        </a>
+        <a class="next" href="./06_logs.html">
+          <span class="pager-label">次へ →</span>
+          <span class="pager-title">06. ログ監視</span>
+        </a>
+      </nav>
+
+    </article>
+  </main>
+
+  <div id="tweaks-panel">
+    <div class="tweaks-hd"><span class="tweaks-dot"></span>Tweaks</div>
+    <div class="tweaks-bd">
+      <div class="tweaks-lbl">テーマ</div>
+      <div class="tw-themes">
+        <div class="tw-opt" data-t="void"><div class="tw-swatch" style="background:linear-gradient(135deg,#05090f,#3bbdf2)"></div><div><div class="tw-name">Void</div><span class="tw-sub">Fortniteブルー · モダン</span></div></div>
+        <div class="tw-opt" data-t="terminal"><div class="tw-swatch" style="background:linear-gradient(135deg,#070b07,#4ade80)"></div><div><div class="tw-name">Terminal</div><span class="tw-sub">グリーン · モノスペース</span></div></div>
+        <div class="tw-opt" data-t="copper"><div class="tw-swatch" style="background:linear-gradient(135deg,#0f0d0b,#e8895a)"></div><div><div class="tw-name">Copper</div><span class="tw-sub">ウォームオレンジ · エディトリアル</span></div></div>
+      </div>
+      <div class="tweaks-lbl" style="margin-top:12px">モード</div>
+      <div class="tw-mode">
+        <button class="tw-mode-btn active" data-m="dark">☾ Dark</button>
+        <button class="tw-mode-btn" data-m="light">☀ Light</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
