@@ -134,4 +134,8 @@ Integrated_App/
 
 ## ライセンス / 著作権
 
-個人利用。サードパーティ依存のライセンスは `services/replay_parser/LICENSE.txt`（および移植元の `__Individual_Apps/*/LICENSE.txt` — ローカル参照）を参照。
+本リポジトリは [MIT License](./LICENSE) で配布されています（Copyright (c) 2026 kumapapa2012）。AS IS basis での提供であり、**作者は不具合修正・サポートの責務を負いません**。商用利用、改変、部分的な切り出しでの再利用も自由ですが、その際は MIT License の規定に従い著作権表示を保持してください。
+
+学術論文・記事・派生プロダクト等で本ソフトウェアに言及する場合は、リポジトリ右サイドバーの **「Cite this repository」** ボタン（[`CITATION.cff`](./CITATION.cff)）をご利用ください。
+
+サードパーティ依存のライセンスは `services/replay_parser/LICENSE.txt`（および移植元の `__Individual_Apps/*/LICENSE.txt` — ローカル参照）を参照。

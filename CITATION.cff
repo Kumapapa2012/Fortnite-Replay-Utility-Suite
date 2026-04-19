@@ -1,0 +1,30 @@
+# CITATION.cff — see https://citation-file-format.github.io/
+# Displayed by GitHub as a "Cite this repository" button.
+
+cff-version: 1.2.0
+message: >-
+  If you use this software (in whole or in part) in your work, please cite
+  it using the metadata below.
+title: Fortnite Replay Utility Suite
+abstract: >-
+  A Windows-local web application that integrates Fortnite replay analysis,
+  movement-track map plotting, in-game log monitoring, and OBS recording
+  trim utilities into a single UI. Composed of a Vite + React frontend, a
+  FastAPI gateway, four Python micro-services, and a .NET replay parser.
+type: software
+authors:
+  - alias: kumapapa2012
+    name: kumapapa2012
+version: 0.0.1
+date-released: "2026-04-20"
+license: MIT
+repository-code: "https://github.com/kumapapa2012/Fortnite-Replay-Utility-Suite"
+url: "https://github.com/kumapapa2012/Fortnite-Replay-Utility-Suite"
+keywords:
+  - fortnite
+  - replay
+  - obs
+  - ffmpeg
+  - fastapi
+  - react
+  - dotnet
