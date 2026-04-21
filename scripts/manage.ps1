@@ -41,6 +41,30 @@ try {
         Write-Host "Stopping services..." -ForegroundColor Cyan
         Write-Host "========================================`n" -ForegroundColor Cyan
         
+        # Stop Vite dev server if running
+        try {
+            $frontendPath = Join-Path $RepoRoot "frontend"
+            Write-Host "Checking for active Vite dev server process..." -ForegroundColor Gray
+            # Find node processes whose command line contains the frontend path and "vite.js"
+            $viteProcesses = Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object { $_.CommandLine -like "*$frontendPath*vite.js*" }
+            
+            if ($viteProcesses) {
+                foreach ($viteProcess in $viteProcesses) {
+                    $viteProcessId = $viteProcess.ProcessId
+                    Write-Host "Found Vite dev server process (PID: $viteProcessId). Stopping..." -ForegroundColor Yellow
+                    Stop-Process -Id $viteProcessId -Force
+                    Write-Host "✓ Vite dev server (PID: $viteProcessId) stopped." -ForegroundColor Green
+                }
+            }
+            else {
+                Write-Host "No active Vite dev server process found." -ForegroundColor Gray
+            }
+        }
+        catch {
+            # This might fail if the process is already gone, which is fine.
+            Write-Host "i Could not stop Vite dev server (maybe already stopped): $_" -ForegroundColor DarkGray
+        }
+
         $pmArgs = @("scripts\process_manager.py", "stop")
         foreach ($s in $Service) {
             $pmArgs += @("--service", $s)
@@ -116,8 +140,10 @@ try {
                 $frontendPath = Join-Path $RepoRoot "frontend"
                 if (Test-Path $frontendPath) {
                     # Start Vite in a new PowerShell window
-                    $viteCmd = "cd '$frontendPath'; npm run dev"
-                    Start-Process pwsh -ArgumentList "-NoExit", "-Command", $viteCmd -WindowStyle Normal
+                    # $viteCmd = "cd '$frontendPath'; npm run dev"
+                    # Start-Process pwsh -ArgumentList "-NoExit", "-Command", $viteCmd -WindowStyle Normal
+                    # Start Vite in a new PowerShell tab
+                    wt -w 0 nt -d $frontendPath pwsh -NoExit -Command "npm run dev"
                     Write-Host "`n✓ Vite dev server started in new window." -ForegroundColor Green
                     Write-Host "   (Access at http://localhost:5173)" -ForegroundColor Gray
                 }
