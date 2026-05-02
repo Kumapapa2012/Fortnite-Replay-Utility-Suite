@@ -379,6 +379,32 @@ Accept: text/event-stream
 
 サーバ側はリングバッファ（最大 200 件）に直近イベントを保持し、新規接続時に `event: backlog` で送信してから live ストリームを開始する。
 
+### 5.5 イベント ID カタログ
+
+`event_detected` の `event_id` フィールドに入りうる値の一覧。`cooldown_sec > 0` のイベントは、同一 ID の前回発火から指定秒が経過するまで再発火を抑制する。
+
+| event_id | アイコン | label | phase | extra | cooldown_sec |
+|---|---|---|---|---|---|
+| `game_launch` | 🚀 | Fortnite 起動 | launch | — | 0 |
+| `lobby_enter` | 🏠 | ロビーに入った | lobby | — | 0 |
+| `matchmaking_start` | 🔍 | マッチメイキング開始 | matchmaking | プレイリスト名 | 0 |
+| `session_found` | 🎯 | サーバー発見 | connecting | セッション ID 先頭 12 文字 | 0 |
+| `map_loaded` | 🗺️ | マップロード完了 | loading | — | 0 |
+| `phase_warmup` | ⏳ | ウォームアップ開始 | warmup | — | 0 |
+| `phase_aircraft` | 🚌 | バトルバス搭乗 | aircraft | — | 0 |
+| `bus_flying` | ✈️ | バス発車 | flying | — | 0 |
+| `phase_safezones` | ⚔️ | 試合開始（降下可能） | ingame | — | 0 |
+| `storm_forming` | 🌀 | ストーム収縮開始 | ingame | — | 0 |
+| `storm_holding` | 🌀 | ストーム停止 | ingame | — | 0 |
+| `player_kill` | 💥 | キル！ | ingame | — | 0 |
+| `player_death` | 💀 | 死亡 | ingame | キルしたプレイヤー名 | 0 |
+| `victory_royale` | 👑 | Victory Royale！ | post_match | — | 60.0 |
+| `match_end` | 🏁 | 試合終了 | post_match | — | 0 |
+| `return_lobby` | 🔙 | ロビーに戻った | lobby | — | 0 |
+| `game_exit` | ⏹️ | Fortnite 終了 | exit | — | 0 |
+
+**cooldown の実装詳細**: `FortniteLogMonitor._detect_event()` 内で `_last_fired: dict[str, datetime]` を参照し、`(now - last_fired[event_id]).total_seconds() < cooldown_sec` の場合は `None` を返してイベント発火を抑制する。クールダウン対象は現時点で `victory_royale` のみ（`GetLocalPlayerHasWinningPlacement 1` がポストゲーム画面で連続して出力される場合に重複通知を防ぐ目的）。
+
 ### 5.5 ライフサイクル
 
 確定方針（`02` §3.10 L2）:

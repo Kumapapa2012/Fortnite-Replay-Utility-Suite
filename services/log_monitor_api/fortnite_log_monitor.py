@@ -87,6 +87,7 @@ class EventPattern:
     icon: str
     phase: str
     extract: Optional[Callable] = None  # ログ行から追加情報を抽出する関数
+    cooldown_sec: float = 0.0  # 同一イベントの再発火を抑制する秒数
 
 
 # 検出パターン一覧（実際のFortniteGame.logから特定済み）
@@ -171,6 +172,29 @@ EVENT_PATTERNS: list[EventPattern] = [
         phase="ingame",
     ),
     EventPattern(
+        event_id="player_kill",
+        pattern=re.compile(r"LogGfeSDK.*Posted Request HLSetVideo"),
+        label="キル！",
+        icon="💥",
+        phase="ingame",
+    ),
+    EventPattern(
+        event_id="player_death",
+        pattern=re.compile(r"LogFortDeathCameraMode.*current view target Controller:(.+)"),
+        label="死亡",
+        icon="💀",
+        phase="ingame",
+        extract=lambda line: _extract_death_player(line),
+    ),
+    EventPattern(
+        event_id="victory_royale",
+        pattern=re.compile(r"LogFortPostScreen.*GetLocalPlayerHasWinningPlacement 1"),
+        label="Victory Royale！",
+        icon="👑",
+        phase="post_match",
+        cooldown_sec=60.0,
+    ),
+    EventPattern(
         event_id="match_end",
         pattern=re.compile(r"ClientSendEndBattleRoyaleMatchForPlayer"),
         label="試合終了",
@@ -192,6 +216,12 @@ EVENT_PATTERNS: list[EventPattern] = [
         phase="exit",
     ),
 ]
+
+
+def _extract_death_player(line: str) -> Optional[str]:
+    """死亡したプレイヤー名を抽出"""
+    m = re.search(r"current view target Controller:(.+)$", line)
+    return m.group(1).strip() if m else None
 
 
 def _extract_playlist(line: str) -> Optional[str]:
@@ -503,11 +533,18 @@ class FortniteLogMonitor:
         self.events: list[DetectedEvent] = []
         self._running = False
         self.start_time: datetime = datetime.now()  # スクリプト起動時刻（JST）
+        self._last_fired: dict[str, datetime] = {}  # クールダウン管理
 
     def _detect_event(self, line: str) -> Optional[DetectedEvent]:
         """1行のログからイベントを検出"""
         for ep in EVENT_PATTERNS:
             if ep.pattern.search(line):
+                # クールダウン中なら抑制
+                if ep.cooldown_sec > 0:
+                    last = self._last_fired.get(ep.event_id)
+                    if last and (datetime.now() - last).total_seconds() < ep.cooldown_sec:
+                        return None
+                self._last_fired[ep.event_id] = datetime.now()
                 ts = parse_log_timestamp(line)
                 extra = ep.extract(line) if ep.extract else None
                 return DetectedEvent(

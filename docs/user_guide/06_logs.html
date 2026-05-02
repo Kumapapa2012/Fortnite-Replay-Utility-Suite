@@ -103,28 +103,142 @@
 
       <section id="events">
         <h2><span class="h2-num">3</span>受信できるイベント</h2>
+        <p>イベントは Fortnite の試合フローに沿って順に発火します。<code>extra</code> 列が「あり」のイベントは、SSE の <code>data.extra</code> フィールドに追加情報が含まれます。</p>
+
         <table>
           <thead>
-            <tr><th>イベント名</th><th>意味</th><th>検出契機</th></tr>
+            <tr><th>イベント ID</th><th>アイコン</th><th>意味</th><th>フェーズ</th><th>extra</th></tr>
           </thead>
           <tbody>
             <tr>
-              <td><code>match_start</code></td>
-              <td>試合開始</td>
-              <td>ロビーから試合への投入を示すログ行を検出</td>
+              <td><code>game_launch</code></td>
+              <td>🚀</td>
+              <td>Fortnite 起動</td>
+              <td>launch</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>lobby_enter</code></td>
+              <td>🏠</td>
+              <td>ロビーに入った</td>
+              <td>lobby</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>matchmaking_start</code></td>
+              <td>🔍</td>
+              <td>マッチメイキング開始</td>
+              <td>matchmaking</td>
+              <td>プレイリスト名（例: <code>playlist: solo</code>）</td>
+            </tr>
+            <tr>
+              <td><code>session_found</code></td>
+              <td>🎯</td>
+              <td>サーバー発見</td>
+              <td>connecting</td>
+              <td>セッション ID 先頭 12 文字</td>
+            </tr>
+            <tr>
+              <td><code>map_loaded</code></td>
+              <td>🗺️</td>
+              <td>マップロード完了</td>
+              <td>loading</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>phase_warmup</code></td>
+              <td>⏳</td>
+              <td>ウォームアップ開始</td>
+              <td>warmup</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>phase_aircraft</code></td>
+              <td>🚌</td>
+              <td>バトルバス搭乗</td>
+              <td>aircraft</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>bus_flying</code></td>
+              <td>✈️</td>
+              <td>バス発車</td>
+              <td>flying</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>phase_safezones</code></td>
+              <td>⚔️</td>
+              <td>試合開始（降下可能）</td>
+              <td>ingame</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>storm_forming</code></td>
+              <td>🌀</td>
+              <td>ストーム収縮開始</td>
+              <td>ingame</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>storm_holding</code></td>
+              <td>🌀</td>
+              <td>ストーム停止</td>
+              <td>ingame</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>player_kill</code></td>
+              <td>💥</td>
+              <td>キル</td>
+              <td>ingame</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>player_death</code></td>
+              <td>💀</td>
+              <td>死亡</td>
+              <td>ingame</td>
+              <td>キルしたプレイヤー名</td>
+            </tr>
+            <tr>
+              <td><code>victory_royale</code></td>
+              <td>👑</td>
+              <td>Victory Royale！</td>
+              <td>post_match</td>
+              <td>—</td>
             </tr>
             <tr>
               <td><code>match_end</code></td>
+              <td>🏁</td>
               <td>試合終了</td>
-              <td>試合終了を示すログ行を検出（または続くロビー復帰）</td>
+              <td>post_match</td>
+              <td>—</td>
             </tr>
             <tr>
-              <td><code>obs_save</code></td>
-              <td>OBS リプレイバッファ保存</td>
-              <td>log_monitor_api 内の OBS 連携が <code>SaveReplayBuffer</code> を呼んだ際（OBS 連携有効時のみ）</td>
+              <td><code>return_lobby</code></td>
+              <td>🔙</td>
+              <td>ロビーに戻った</td>
+              <td>lobby</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td><code>game_exit</code></td>
+              <td>⏹️</td>
+              <td>Fortnite 終了</td>
+              <td>exit</td>
+              <td>—</td>
             </tr>
           </tbody>
         </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">クールダウン（victory_royale）</span>
+            <p><code>victory_royale</code> は同一イベントの連続発火を防ぐため、検出後 60 秒間は再発火しません。</p>
+          </div>
+        </div>
       </section>
 
       <section id="log-path">

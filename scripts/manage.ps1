@@ -99,9 +99,10 @@ try {
         
         Write-Host "`n✓ Services started." -ForegroundColor Green
         
-        # Wait a moment for services to stabilize
-        Write-Host "`nWaiting 2s for services to stabilize..." -ForegroundColor Gray
-        Start-Sleep -Seconds 2
+        # Wait for services to stabilize.
+        # suite_core startup includes OBS WebSocket probe (~2s) + match scan, taking ~5s total.
+        Write-Host "`nWaiting 8s for services to stabilize..." -ForegroundColor Gray
+        Start-Sleep -Seconds 8
         
         # ===== STATUS CHECK =====
         Write-Host "`n========================================" -ForegroundColor Cyan
