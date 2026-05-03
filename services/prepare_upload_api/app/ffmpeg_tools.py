@@ -132,6 +132,66 @@ def trim_copy(
     return subprocess.run(cmd, capture_output=True, text=True, timeout=600)
 
 
+def kill_clip_copy(
+    ffmpeg: str,
+    video_path: str,
+    start_sec: float,
+    end_sec: float,
+    output_path: str,
+) -> subprocess.CompletedProcess[str]:
+    """Cut [start_sec, end_sec] using stream copy. start_sec should be a keyframe."""
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        ffmpeg,
+        "-loglevel", "error",
+        "-ss", f"{start_sec:.3f}",
+        "-t", f"{end_sec - start_sec:.3f}",
+        "-i", video_path,
+        "-codec", "copy",
+        "-avoid_negative_ts", "make_zero",
+        "-y",
+        output_path,
+    ]
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+
+
+def concat_clips(
+    ffmpeg: str,
+    clip_paths: list[str],
+    output_path: str,
+) -> subprocess.CompletedProcess[str]:
+    """Concatenate clips via ffmpeg concat demuxer. All clips must share codec."""
+    list_path = Path(output_path).parent / "_concat_list.txt"
+    list_path.write_text(
+        "\n".join(f"file '{Path(p).as_posix()}'" for p in clip_paths),
+        encoding="utf-8",
+    )
+    try:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        cmd = [
+            ffmpeg,
+            "-loglevel", "error",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", str(list_path),
+            "-codec", "copy",
+            "-y",
+            output_path,
+        ]
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    finally:
+        list_path.unlink(missing_ok=True)
+
+
+def nearest_keyframe_at_or_after(keyframes: list[float], target: float) -> float:
+    """Return the nearest keyframe >= target. Falls back to the last keyframe before target."""
+    after = [kf for kf in keyframes if kf >= target]
+    if after:
+        return min(after)
+    before = [kf for kf in keyframes if kf < target]
+    return max(before) if before else target
+
+
 def seconds_to_hms(seconds: float) -> str:
     h = int(seconds // 3600)
     m = int((seconds % 3600) // 60)

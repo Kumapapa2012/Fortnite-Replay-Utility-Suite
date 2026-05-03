@@ -296,11 +296,13 @@ class OBSController:
     スクリプトは SaveReplayBuffer を呼ぶだけで録画の開始・停止は行わない。
     """
 
-    def __init__(self, host: str, port: int, password: str, save_delay: float = 10.0):
+    def __init__(self, host: str, port: int, password: str, save_delay: float = 10.0,
+                 post_save_callback: Optional[Callable] = None):
         self.host = host
         self.port = port
         self.password = password
         self.save_delay = save_delay
+        self._post_save_callback = post_save_callback
         self._client = None
         self._save_timer: Optional[threading.Timer] = None
 
@@ -325,6 +327,11 @@ class OBSController:
         try:
             self._client.save_replay_buffer()
             print("  [OBS] 💾 リプレイバッファ保存")
+            if self._post_save_callback:
+                try:
+                    self._post_save_callback()
+                except Exception as cb_e:
+                    print(f"  [OBS] ⚠ post_save_callback エラー: {cb_e}")
         except Exception as e:
             print(f"  [OBS] ⚠ リプレイバッファ保存エラー: {e}")
 

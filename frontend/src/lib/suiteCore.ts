@@ -29,6 +29,50 @@ export interface Match {
   video: MatchVideo | null;
   hasReplay: boolean;
   hasVideo: boolean;
+  // sidecar state
+  hasTrimmedVideo: boolean;
+  trimmedVideoPath: string | null;
+  trimStartOffsetSec: number | null;
+  killOffsetsInTrimmed: number[];
+  hasSummary: boolean;
+  hasKillCompilation: boolean;
+  killCompilationPath: string | null;
+  killTimesInMatch: number[];
+  matchResult: "win" | "loss" | null;
+}
+
+export interface MatchStatePatch {
+  trimmedVideoPath?: string;
+  trimStartOffsetSec?: number;
+  hasSummary?: boolean;
+  killCompilationPath?: string;
+}
+
+export interface ComputeKillsResponse {
+  matchId: string;
+  userPlayerId: string;
+  killCount: number;
+  killOffsetsInTrimmed: number[];
+}
+
+export interface PostMatchAutomationResponse {
+  matchId: string;
+  matchResult: "win" | "loss";
+  killCount: number;
+  killTimesInMatch: number[];
+}
+
+export interface MatchStateResponse {
+  matchId: string;
+  state: {
+    hasTrimmedVideo: boolean;
+    trimmedVideoPath: string | null;
+    trimStartOffsetSec: number | null;
+    killOffsetsInTrimmed: number[];
+    hasSummary: boolean;
+    hasKillCompilation: boolean;
+    killCompilationPath: string | null;
+  };
 }
 
 export interface MatchesResponse {
@@ -66,4 +110,10 @@ export const suiteCoreApi = {
   getConfig: () => api.get<SuiteConfig>(`${BASE}/config`),
   putConfig: (partial: Partial<SuiteConfig>) =>
     api.put<SuiteConfig>(`${BASE}/config`, partial),
+  patchMatchState: (id: string, patch: MatchStatePatch) =>
+    api.patch<MatchStateResponse>(`${BASE}/matches/${id}/state`, patch),
+  computeKills: (id: string) =>
+    api.post<ComputeKillsResponse>(`${BASE}/matches/${id}/compute-kills`),
+  summarizeMatch: (id: string, hasWon: boolean | null = null) =>
+    api.post<PostMatchAutomationResponse>(`${BASE}/matches/${encodeURIComponent(id)}/summarize`, { hasWon }),
 };

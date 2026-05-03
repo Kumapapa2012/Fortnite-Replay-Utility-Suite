@@ -49,9 +49,12 @@ from .candidates import (  # noqa: E402
 )
 from .ffmpeg_tools import (  # noqa: E402
     ToolStatus,
+    concat_clips,
     detect_tools,
     extract_thumbnail,
     find_keyframes,
+    kill_clip_copy,
+    nearest_keyframe_at_or_after,
     probe_duration,
     seconds_to_hms,
     trim_copy,
@@ -99,6 +102,14 @@ class TrimBody(BaseModel):
 
 class VideosForReplayBody(BaseModel):
     replay_path: str = Field(..., alias="replayPath")
+    model_config = {"populate_by_name": True}
+
+
+class KillCompilationBody(BaseModel):
+    video_path: str = Field(..., alias="videoPath")
+    kill_offsets: list[float] = Field(..., alias="killOffsets")
+    before_sec: float = Field(10.0, alias="beforeSec", ge=1.0, le=30.0)
+    after_sec: float = Field(10.0, alias="afterSec", ge=1.0, le=30.0)
     model_config = {"populate_by_name": True}
 
 
@@ -440,7 +451,7 @@ async def trim(body: TrimBody) -> dict:
             detail=f"startOffsetSec は 0 以上 duration({duration:.2f}) 未満で指定してください。",
         )
 
-    out_path = Path(body.output_path) if body.output_path else video.parent / "upload.mp4"
+    out_path = Path(body.output_path) if body.output_path else video.parent / f"{video.stem}_trimmed{video.suffix}"
     _validate_under(str(out_path.parent), [root])  # output must land under recordings root
 
     r = await asyncio.to_thread(trim_copy, ffmpeg, str(video), body.start_offset_sec, str(out_path))
@@ -458,4 +469,83 @@ async def trim(body: TrimBody) -> dict:
         "sizeBytes": out_path.stat().st_size,
         "durationSec": round(out_duration, 3),
         "ffmpegReturncode": r.returncode,
+    }
+
+
+@app.post("/api/kill-compilation")
+async def kill_compilation(body: KillCompilationBody) -> dict:
+    """trimmed video からキルクリップを切り出して結合する。
+
+    各クリップは (kill_offset - beforeSec) 以降の最近接キーフレームから開始し、
+    (kill_offset + afterSec) で終了する（-c copy、無劣化）。
+    """
+    ffmpeg, ffprobe = _require_tools()
+    root = _recordings_dir()
+    if root is None:
+        raise HTTPException(status_code=404, detail="録画フォルダが見つかりません。")
+    video = _validate_under(body.video_path, [root])
+    if not video.is_file():
+        raise HTTPException(status_code=404, detail="動画が見つかりません。")
+    if not body.kill_offsets:
+        raise HTTPException(status_code=400, detail="killOffsets が空です。")
+
+    try:
+        total_duration = await asyncio.to_thread(probe_duration, ffprobe, str(video))
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"ffprobe 失敗: {e}")
+
+    tmp_dir = video.parent / "_kill_clips_tmp"
+    tmp_dir.mkdir(exist_ok=True)
+    clip_paths: list[str] = []
+    clip_infos: list[dict] = []
+
+    try:
+        for i, kill_offset in enumerate(body.kill_offsets):
+            target_start = max(0.0, kill_offset - body.before_sec)
+            end_sec = min(total_duration, kill_offset + body.after_sec)
+
+            # target_start 周辺のキーフレームを取得（前後 1 秒の余裕を持たせて探索）
+            search_start = max(0.0, target_start - 1.0)
+            kf_list = await asyncio.to_thread(
+                find_keyframes, ffprobe, str(video), search_start, 7.0
+            )
+            actual_start = nearest_keyframe_at_or_after(kf_list, target_start)
+
+            clip_path = str(tmp_dir / f"clip_{i:03d}.mp4")
+            r = await asyncio.to_thread(
+                kill_clip_copy, ffmpeg, str(video), actual_start, end_sec, clip_path
+            )
+            if r.returncode != 0 or not Path(clip_path).exists():
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"クリップ {i + 1} の切り出しに失敗: {(r.stderr or '').strip()[-400:]}",
+                )
+            clip_paths.append(clip_path)
+            clip_infos.append({
+                "killOffsetSec": round(kill_offset, 3),
+                "actualStartSec": round(actual_start, 3),
+                "endSec": round(end_sec, 3),
+                "durationSec": round(end_sec - actual_start, 3),
+            })
+
+        out_path = video.parent / f"{video.stem}_kills.mp4"
+        r = await asyncio.to_thread(concat_clips, ffmpeg, clip_paths, str(out_path))
+        if r.returncode != 0 or not out_path.exists():
+            raise HTTPException(
+                status_code=422,
+                detail=f"クリップ結合に失敗: {(r.stderr or '').strip()[-400:]}",
+            )
+    finally:
+        for cp in clip_paths:
+            Path(cp).unlink(missing_ok=True)
+        try:
+            tmp_dir.rmdir()
+        except OSError:
+            pass
+
+    return {
+        "outputPath": str(out_path),
+        "clipCount": len(clip_infos),
+        "sizeBytes": out_path.stat().st_size,
+        "clips": clip_infos,
     }

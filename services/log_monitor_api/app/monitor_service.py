@@ -22,8 +22,11 @@ import sys
 
 _HERE = Path(__file__).resolve().parent
 _SERVICE_DIR = _HERE.parent
+_SERVICES_DIR = _HERE.parent.parent  # services/ — gives access to _common
 if str(_SERVICE_DIR) not in sys.path:
     sys.path.insert(0, str(_SERVICE_DIR))
+if str(_SERVICES_DIR) not in sys.path:
+    sys.path.insert(0, str(_SERVICES_DIR))
 
 # Load .env for OBS_* before importing the monitor module (the module reads env at call time,
 # but we want values visible to OBSController.__init__ below).
@@ -34,9 +37,13 @@ try:
 except Exception:
     pass
 
+import httpx  # noqa: E402
 import fortnite_log_monitor as flm  # noqa: E402
 
+from _common.ports import SERVICE_PORTS  # noqa: E402
+
 RING_BUFFER_SIZE = 100
+_SUITE_CORE_BASE = f"http://127.0.0.1:{SERVICE_PORTS['suite_core']}"
 
 
 @dataclass
@@ -103,7 +110,10 @@ class LogMonitorService:
                 port = int(os.environ.get("OBS_PORT", "4455"))
                 password = os.environ.get("OBS_PASSWORD", "")
                 save_delay = float(os.environ.get("OBS_SAVE_DELAY", "10"))
-                obs = flm.OBSController(host=host, port=port, password=password, save_delay=save_delay)
+                obs = flm.OBSController(
+                    host=host, port=port, password=password, save_delay=save_delay,
+                    post_save_callback=self._make_post_save_callback(),
+                )
                 if obs.connect():
                     self._obs = obs
                     obs_connected = True
@@ -236,6 +246,54 @@ class LogMonitorService:
         payload = {"type": "system", "kind": kind, "message": message, "detected_at": time.strftime("%H:%M:%S")}
         self._state.recent_events.append(payload)
         self._broadcast(payload)
+
+    # ---- post-match automation ----
+
+    def _check_has_won(self) -> bool:
+        """Scan recent_events ring buffer to determine if last match was a win."""
+        for ev in reversed(self._state.recent_events):
+            eid = ev.get("event_id")
+            if eid == "victory_royale":
+                return True
+            if eid == "matchmaking_start":
+                return False
+        return False
+
+    def _make_post_save_callback(self):
+        """Return a sync callback for OBSController.post_save_callback."""
+        def callback():
+            loop = self._loop
+            if loop is not None and loop.is_running():
+                asyncio.run_coroutine_threadsafe(self._post_save_automation(), loop)
+        return callback
+
+    async def _post_save_automation(self) -> None:
+        """Call suite_core post-match-automation after OBS replay buffer save."""
+        import logging
+        log = logging.getLogger("log_monitor_api")
+        has_won = self._check_has_won()
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                r = await client.post(
+                    f"{_SUITE_CORE_BASE}/api/matches/post-match-automation",
+                    json={"hasWon": has_won},
+                )
+            if r.status_code == 200:
+                data = r.json()
+                log.info(
+                    "post-match automation: matchId=%s result=%s kills=%d",
+                    data.get("matchId"), data.get("matchResult"), data.get("killCount", 0),
+                )
+                self._push_system_event(
+                    "post_match_automation",
+                    f"自動集計完了: {data.get('matchResult')} / {data.get('killCount', 0)} kills",
+                )
+            else:
+                log.warning("post-match automation HTTP %s: %s", r.status_code, r.text[:300])
+        except Exception as e:
+            log.warning("post-match automation error: %s", e)
+
+    # ---- broadcast helpers ----
 
     def _broadcast_state(self) -> None:
         """Push a fresh snapshot to SSE subscribers (e.g. after start/stop)."""

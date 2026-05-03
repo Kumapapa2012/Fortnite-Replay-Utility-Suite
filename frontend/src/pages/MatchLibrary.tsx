@@ -53,11 +53,17 @@ function MatchCard({ m }: { m: Match }) {
           <p className="text-sm font-medium font-mono">{m.id}</p>
           <p className="text-xs text-[var(--color-muted)] mt-0.5">
             {fmtDate(m.matchStartedAt)}
+            {m.matchResult === "win" && (
+              <span className="ml-1.5 text-yellow-300">👑</span>
+            )}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <Badge ok={m.hasReplay} label="Replay" />
           <Badge ok={m.hasVideo} label="Video" />
+          <Badge ok={m.hasTrimmedVideo} label="Trimmed" />
+          <Badge ok={m.hasSummary} label="Summary" />
+          <Badge ok={m.hasKillCompilation} label="Kill Clip" />
         </div>
       </div>
       <div className="mt-3 grid grid-cols-1 gap-1 text-[11px]">

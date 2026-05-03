@@ -94,6 +94,20 @@ export interface TrimResponse {
   ffmpegReturncode: number;
 }
 
+export interface KillClipInfo {
+  killOffsetSec: number;
+  actualStartSec: number;
+  endSec: number;
+  durationSec: number;
+}
+
+export interface KillCompilationResponse {
+  outputPath: string;
+  clipCount: number;
+  sizeBytes: number;
+  clips: KillClipInfo[];
+}
+
 export const prepareUploadApi = {
   health: () => api.get<HealthResponse>(`${BASE}/api/health`, RAW),
   listVideos: () => api.get<ListVideosResponse>(`${BASE}/videos`, RAW),
@@ -113,6 +127,17 @@ export const prepareUploadApi = {
     api.post<TrimResponse>(
       `${BASE}/trim`,
       { videoPath, startOffsetSec, outputPath: outputPath ?? null },
+      RAW,
+    ),
+  killCompilation: (
+    videoPath: string,
+    killOffsets: number[],
+    beforeSec = 10,
+    afterSec = 10,
+  ) =>
+    api.post<KillCompilationResponse>(
+      `${BASE}/kill-compilation`,
+      { videoPath, killOffsets, beforeSec, afterSec },
       RAW,
     ),
 };
