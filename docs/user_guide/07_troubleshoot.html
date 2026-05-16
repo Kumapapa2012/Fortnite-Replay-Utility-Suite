@@ -124,7 +124,7 @@ python scripts\smoke.py --direct</code></pre>
         <h3 style="margin-top:24px; font-size:18px;">2.2 ヘルスチェックでタイムアウト</h3>
         <ul>
           <li><strong>Python サービス（log_monitor / map / prepare_upload / suite_core）</strong>: <code>logs/&lt;svc&gt;.err.log</code> に <code>ModuleNotFoundError</code> → <code>../venv</code> への <code>pip install -r services/requirements.txt</code> 漏れ</li>
-          <li><strong>.NET サービス（replay_parser）</strong>: <code>It was not possible to find any compatible framework version</code> → .NET 9 SDK が未インストール</li>
+          <li><strong>.NET サービス（replay_parser）</strong>: <code>It was not possible to find any compatible framework version</code> → .NET 10 SDK が未インストール</li>
           <li><strong>Suite Core が config 読み込みエラー</strong>: <code>~/.fortnite-suite/config.json</code> が JSON として壊れている。<code>assets/config.template.json</code> から復元するか、空 <code>{}</code> にして起動</li>
         </ul>
       </section>
@@ -236,14 +236,19 @@ ffprobe -version</code></pre>
         <h3 style="margin-top:24px; font-size:18px;">7.1 「ログファイル(未検出)」バナーが出る</h3>
         <p><code>config.json</code> の <code>log_path</code> が空、もしくは存在しないパスを指しています。設定ページで <code>%LOCALAPPDATA%\FortniteGame\Saved\Logs\FortniteGame.log</code> を入力し、保存してください。</p>
 
-        <h3 style="margin-top:24px; font-size:18px;">7.2 トグル ON でも何も流れない</h3>
+        <h3 style="margin-top:24px; font-size:18px;">7.2 ログページを開いてもイベントが流れない</h3>
         <ul>
-          <li>Fortnite が起動していない → 正常動作（追記が無いので tail から何も出ない）</li>
+          <li>Fortnite が起動していない → 正常動作（ゲームイベントの追記が無いため何も出ない）</li>
           <li>Fortnite 起動中なのに無反応 → <code>logs/log_monitor.err.log</code> を確認。<code>PermissionError</code> ならログファイルが他プロセスにロックされている</li>
+          <li>監視ループ自体が起動していない → <code>logs/log_monitor.stdout.log</code> に <code>monitoring loop started</code> の行があるか確認。なければ <code>log_monitor_api</code> が正常起動していない</li>
         </ul>
 
-        <h3 style="margin-top:24px; font-size:18px;">7.3 トグル UI が ON のまま戻らない</h3>
-        <p>サービス側の <code>/api/log-monitor/status</code> が真実、フロントのトグルはその投影です。<code>stop.ps1</code> 中に SSE が切断されると、稀にトグル表示だけ ON で残ります。<strong>ページをリロード</strong>するかページ移動すれば整合します。</p>
+        <h3 style="margin-top:24px; font-size:18px;">7.3 試合終了後の自動処理が走らない</h3>
+        <ul>
+          <li><code>log_path</code> が未設定 / 不正 → ゲームイベントが検出されないため <code>return_lobby</code> が発火しない（§7.1 参照）</li>
+          <li>OBS WebSocket 接続失敗 → リプレイバッファ保存コマンドが届かない。<code>logs/log_monitor.log</code> で OBS 接続エラーを確認し、<code>services/log_monitor_api/.env</code> の <code>OBS_PASSWORD</code> を見直す</li>
+          <li>自動処理のエラーは <code>logs/log_monitor.log</code> と <code>logs/suite_core.log</code> に記録される</li>
+        </ul>
       </section>
 
       <section id="scenarios">
@@ -311,6 +316,10 @@ ffprobe -version</code></pre>
             <tr>
               <td><code>services/log_monitor_api/.env</code></td>
               <td>OBS WebSocket 認証情報（<a href="./01_setup.html#env">01 章 §8</a> 参照）</td>
+            </tr>
+            <tr>
+              <td><code>~/.fortnite-suite/matches/&lt;id&gt;.json</code></td>
+              <td>マッチごとのサイドカーファイル。動画リンク・トリミング結果・キルオフセット・勝敗を永続化。破損時は削除すれば再生成される</td>
             </tr>
           </tbody>
         </table>

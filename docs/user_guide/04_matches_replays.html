@@ -64,7 +64,7 @@
           <span class="callout-icon">💡</span>
           <div class="callout-body">
             <span class="callout-title">マッチとリプレイの違い</span>
-            <p><strong>リプレイ</strong>は Fortnite 自体が出力する <code>.replay</code> ファイル単体。<strong>マッチ</strong>は、リプレイと OBS の録画動画（<code>.mp4</code>）を時刻でペアリングした「論理的な試合単位」です。動画が無い試合はリプレイのみのマッチとして扱われます。</p>
+            <p><strong>リプレイ</strong>は Fortnite 自体が出力する <code>.replay</code> ファイル単体。<strong>マッチ</strong>は、リプレイと OBS の録画動画（<code>.mp4</code>）を時刻でペアリングした「論理的な試合単位」です。マッチは必ずリプレイを持ちます（動画が無い試合はリプレイのみのマッチとして表示されます）。</p>
           </div>
         </div>
       </section>
@@ -79,29 +79,42 @@
 
         <table>
           <thead>
-            <tr><th>状態</th><th>Replay バッジ</th><th>Video バッジ</th><th>意味</th></tr>
+            <tr><th>バッジ</th><th>色</th><th>意味</th></tr>
           </thead>
           <tbody>
             <tr>
-              <td>Replay のみ</td>
               <td><span class="badge badge-ok">Replay</span></td>
+              <td>緑</td>
+              <td>常に表示（マッチは必ずリプレイを持つ）</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-ok">Video</span></td>
+              <td>緑</td>
+              <td>録画動画がリンク済み（自動または手動）</td>
+            </tr>
+            <tr>
               <td><span class="badge">Video</span></td>
-              <td>OBS 録画なし、または動画とのペアリング失敗</td>
+              <td>灰</td>
+              <td>録画動画が未リンク（OBS 録画なし、またはペアリング失敗）</td>
             </tr>
             <tr>
-              <td>両方あり</td>
-              <td><span class="badge badge-ok">Replay</span></td>
-              <td><span class="badge badge-ok">Video</span></td>
-              <td>動画トリミング機能（05 章）が使える</td>
+              <td><span class="badge badge-ok">Summary</span></td>
+              <td>緑</td>
+              <td>リプレイ解析済み（キル数・勝敗の集計が完了）</td>
             </tr>
             <tr>
-              <td>Video のみ</td>
-              <td><span class="badge">Replay</span></td>
-              <td><span class="badge badge-ok">Video</span></td>
-              <td>リプレイファイルが見つからない（削除された等）</td>
+              <td><span class="badge badge-ok">Trimmed</span></td>
+              <td>緑</td>
+              <td>動画のトリミングが完了し、切り出しファイルが存在する</td>
+            </tr>
+            <tr>
+              <td><span class="badge badge-ok">Kill Clip</span></td>
+              <td>緑</td>
+              <td>Kill クリップ集の生成が完了</td>
             </tr>
           </tbody>
         </table>
+        <p style="margin-top:8px; font-size:14px; color:var(--fg-2);">Victory Royale の試合にはカード左上に 👑 アイコンが表示されます。</p>
 
         <div class="callout callout-note">
           <span class="callout-icon">💡</span>
@@ -114,16 +127,109 @@
 
       <section id="match-detail">
         <h2><span class="h2-num">2</span>マッチ詳細</h2>
-        <p>カードをクリックすると <code>/matches/:id</code> に遷移し、その試合の詳細が表示されます。「試合情報」「📼 リプレイ」「🎬 録画動画」の 3 セクション構成です。</p>
+        <p>カードをクリックすると <code>/matches/:id</code> に遷移し、その試合の詳細が表示されます。</p>
         <figure class="figure">
           <img src="./assets/img/04_02_match_detail.png" alt="/matches/:id 詳細画面" loading="lazy" />
-          <figcaption>図 4.2 — マッチ詳細。リプレイと動画の両方への導線を持つ</figcaption>
+          <figcaption>図 4.2 — マッチ詳細。複数セクションで試合情報・動画・キル集を一画面に集約</figcaption>
         </figure>
-        <ul>
-          <li><strong>試合情報</strong>: 開始時刻 / 試合長 / 人間プレイヤー数 / Bot 数。人間/Bot 数は replay_parser の JSON を後読みするため、開いてから 1〜2 秒遅れて埋まります</li>
-          <li><strong>📼 リプレイ</strong>: <code>.replay</code> のフルパスと「HTML レポートを開く」ボタン。クリックでリプレイ詳細（<a href="#replay-detail">§4</a>）に遷移します</li>
-          <li><strong>🎬 録画動画</strong>: 動画のサムネイルと「動画ページで開く」ボタン。クリックで <code>/videos</code> に遷移します（動画がペアリングされている場合のみ表示）</li>
-        </ul>
+
+        <table>
+          <thead>
+            <tr><th>セクション</th><th>内容</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>試合情報</strong></td>
+              <td>開始時刻 / 試合長 / 人間プレイヤー数 / Bot 数。replay_parser による後読みのため開いてから 1〜2 秒遅れて埋まる</td>
+            </tr>
+            <tr>
+              <td><strong>処理状態</strong></td>
+              <td>試合終了後の自動処理（リプレイ解析・動画リンク・キルオフセット計算）の進捗を SSE でリアルタイム表示。処理済みの各ステップは緑チェックになる</td>
+            </tr>
+            <tr>
+              <td><strong>試合集計</strong></td>
+              <td>キル数・勝敗（Victory / Defeat ボタンで手動設定も可）。<code>Summary</code> バッジが付いている場合はリプレイ解析から自動入力</td>
+            </tr>
+            <tr>
+              <td><strong>📼 リプレイ</strong></td>
+              <td><code>.replay</code> のフルパスと「HTML レポートを開く」ボタン。クリックでリプレイ詳細（<a href="#replay-detail">§4</a>）に遷移</td>
+            </tr>
+            <tr>
+              <td><strong>🎬 録画動画</strong></td>
+              <td>動画がリンク済みの場合はサムネイルを表示。未リンクの場合は「自動検出」ボタンと手動リンク用ドロップダウンが表示される（詳細は下記）</td>
+            </tr>
+            <tr>
+              <td><strong>Kill クリップ集</strong></td>
+              <td>Step 1: キルオフセット計算 → Step 2: キルシーンを連結した mp4 を生成。<code>Kill Clip</code> バッジが付くと生成済み</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top:28px; font-size:18px;">録画動画のリンク</h3>
+        <p>動画が未リンクの場合、マッチ詳細の「🎬 録画動画」セクションに 2 つの方法が表示されます。</p>
+        <ol class="steps">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>自動検出</strong>
+              <p>「自動検出」ボタンをクリックすると、録画フォルダを走査してリプレイと時刻が合う動画を自動でリンクします。成功すればそのままキルオフセット計算まで進みます。</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>手動リンク</strong>
+              <p>自動検出で見つからない場合は、ドロップダウンから録画フォルダ内の動画を選んで「リンク」ボタンで保存できます。</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">リンク情報の保存先</span>
+            <p>動画リンク・トリミング結果・キルオフセット等は <code>~/.fortnite-suite/matches/&lt;id&gt;.json</code>（サイドカーファイル）に永続化されます。サービスを再起動しても保持されます。</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="post-match">
+        <h2><span class="h2-num">2a</span>試合終了後の自動処理</h2>
+        <p>ログ監視が動作中（06 章）であれば、試合終了を検出して OBS がリプレイバッファを保存した直後に、以下の処理が自動で実行されます。</p>
+
+        <ol class="steps">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>リプレイ解析（Summarize）</strong>
+              <p>replay_parser が最新の <code>.replay</code> をパース。キル数・キル時刻・勝敗を算出し、<code>Summary</code> バッジが付きます。</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>動画の自動リンク</strong>
+              <p>録画フォルダを走査し、試合時刻と最も合う動画を自動でリンク。成功すれば <code>Video</code> バッジが緑になります。</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <strong>キルオフセット計算</strong>
+              <p>動画リンクに成功した場合、キル時刻を動画上の秒数に変換して保存。Kill クリップ生成の準備が完了します。</p>
+            </div>
+          </li>
+        </ol>
+
+        <p>各ステップの進捗はダッシュボードのバナーとマッチ詳細の「処理状態」セクションにリアルタイムで表示されます。</p>
+
+        <div class="callout callout-warn">
+          <span class="callout-icon">⚠️</span>
+          <div class="callout-body">
+            <span class="callout-title">OBS のタイミング問題</span>
+            <p>OBS がリプレイバッファを保存するまでに時間がかかる場合、自動リンクが失敗することがあります。その際はマッチ詳細の「自動検出」または「手動リンク」で後から動画を紐付けてください。</p>
+          </div>
+        </div>
       </section>
 
       <section id="replays-list">

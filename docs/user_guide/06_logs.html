@@ -32,9 +32,10 @@
         <ul class="sidebar-list" id="toc">
           <li><a href="#overview"><span class="sn">—</span>概要</a></li>
           <li><a href="#logs-page"><span class="sn">1</span>ログ監視ページ</a></li>
-          <li><a href="#toggle"><span class="sn">2</span>監視のオン/オフ</a></li>
-          <li><a href="#events"><span class="sn">3</span>受信できるイベント</a></li>
-          <li><a href="#log-path"><span class="sn">4</span>ログパスの設定</a></li>
+          <li><a href="#toggle"><span class="sn">2</span>SSE インジケーター</a></li>
+          <li><a href="#events"><span class="sn">3</span>ゲームイベント一覧</a></li>
+          <li><a href="#system-events"><span class="sn">4</span>システムイベント</a></li>
+          <li><a href="#log-path"><span class="sn">5</span>ログパスの設定</a></li>
         </ul>
       </div>
       <div class="sidebar-section">
@@ -63,46 +64,49 @@
           <span class="callout-icon">💡</span>
           <div class="callout-body">
             <span class="callout-title">何に使う機能か</span>
-            <p>「いま試合中か」「直前のロビー戻りはいつか」を Fortnite を起動したまま検出できます。OBS のリプレイバッファ自動保存（log_monitor_api 内の OBS 連携）等のトリガーに利用されます。</p>
+            <p>「いま試合中か」「直前のロビー戻りはいつか」を Fortnite を起動したまま検出できます。OBS のリプレイバッファ自動保存・試合終了後の自動処理（リプレイ解析・動画リンク・キルオフセット計算）のトリガーに利用されます。</p>
+          </div>
+        </div>
+
+        <div class="callout callout-ok">
+          <span class="callout-icon">✦</span>
+          <div class="callout-body">
+            <span class="callout-title">監視ループはサービス起動と同時に自動開始</span>
+            <p><code>log_monitor_api</code> の起動時に Fortnite ログの tail が自動的に開始されます。ログ監視ページ（<code>/logs</code>）を開かなくても、バックグラウンドでイベントを検出し続けます。<code>/logs</code> ページを開くと SSE 接続が自動で確立し、イベントがリアルタイムで画面に流れます。</p>
           </div>
         </div>
       </section>
 
       <section id="logs-page">
         <h2><span class="h2-num">1</span>ログ監視ページ</h2>
-        <p>サイドバーの「ログ」または <code>/logs</code> を開くと、ログ監視のコントロールパネルが表示されます。初期状態では監視はオフ（イベントは流れない）です。</p>
+        <p>サイドバーの「ログ」または <code>/logs</code> を開くと、ログ監視のステータスとリアルタイムイベントログが表示されます。ページを開くと同時に SSE 接続が自動で確立し、バックグラウンドで検出されたイベントがすぐに流れ始めます。</p>
         <figure class="figure">
-          <img src="./assets/img/06_01_logs_off.png" alt="/logs ページ（監視オフ状態）" loading="lazy" />
-          <figcaption>図 6.1 — ログ監視ページ（初期状態）。トグルがオフ、ログパスのバナー表示</figcaption>
+          <img src="./assets/img/06_02_logs_on_events.png" alt="/logs ページ（イベント受信中）" loading="lazy" />
+          <figcaption>図 6.1 — ログ監視ページ。SSE 接続中のステータスバナーとイベントログ</figcaption>
         </figure>
         <ul>
-          <li><strong>右上のトグル</strong>: 監視のオン/オフを切り替え</li>
-          <li><strong>ログパスバナー</strong>: 現在 tail 対象としている <code>log_path</code> の表示。未検出なら「ログファイル(未検出)」</li>
-          <li><strong>イベント表示エリア</strong>: 受信したイベントを時系列で追加表示</li>
+          <li><strong>ステータスバナー</strong>: 監視フェーズ・マッチ数・<code>SSE: open</code> インジケーター</li>
+          <li><strong>監視状態パネル</strong>: tail 対象ログファイルパス・OBS 接続状態・マッチ数</li>
+          <li><strong>イベントログ</strong>: ゲームイベントとシステムイベントを時系列で表示</li>
         </ul>
-      </section>
-
-      <section id="toggle">
-        <h2><span class="h2-num">2</span>監視のオン/オフ</h2>
-        <p>右上のトグルをオンにすると、ブラウザが <code>/api/log-monitor/events</code> に EventSource (SSE) 接続を開き、サーバ側でログファイルの tail が始まります。</p>
-        <figure class="figure">
-          <img src="./assets/img/06_02_logs_on_events.png" alt="/logs ページ（監視オン、イベント受信中）" loading="lazy" />
-          <figcaption>図 6.2 — 監視オン。Fortnite で 1 試合終わるたびに match_start / match_end が DOM に追加される</figcaption>
-        </figure>
 
         <div class="callout callout-note">
           <span class="callout-icon">💡</span>
           <div class="callout-body">
             <span class="callout-title">Fortnite が起動していない場合</span>
-            <p>tail 対象ファイルへの追記が無いため、何のイベントも流れません。これは正常動作です。</p>
+            <p>tail 対象ファイルへの追記が無いため、ゲームイベントは流れません。これは正常動作です。試合終了後の自動処理が走ればシステムイベントは表示されます。</p>
           </div>
         </div>
+      </section>
 
-        <p>トグルをオフにすると、ブラウザ側で EventSource が close され、ブラウザの Network タブで <code>/api/log-monitor/events</code> が <code>finished</code> になります。サーバ側の tail も解放されます。</p>
+      <section id="toggle">
+        <h2><span class="h2-num">2</span>SSE インジケーター</h2>
+        <p>ページ右上の <code>● SSE: open</code> インジケーターは、ブラウザと <code>log_monitor_api</code> の SSE 接続状態を示します。<code>/logs</code> ページを開くと自動接続し、他のページへ移動すると閉じます。接続が切れた場合はページを再読み込みすると再接続されます。</p>
+        <p>バックグラウンドの監視ループはブラウザの接続状態に関わらず継続して動作します。</p>
       </section>
 
       <section id="events">
-        <h2><span class="h2-num">3</span>受信できるイベント</h2>
+        <h2><span class="h2-num">3</span>ゲームイベント一覧</h2>
         <p>イベントは Fortnite の試合フローに沿って順に発火します。<code>extra</code> 列が「あり」のイベントは、SSE の <code>data.extra</code> フィールドに追加情報が含まれます。</p>
 
         <table>
@@ -241,8 +245,49 @@
         </div>
       </section>
 
+      <section id="system-events">
+        <h2><span class="h2-num">4</span>システムイベント</h2>
+        <p>ゲームイベントとは別に、試合終了後の自動処理や OBS Watchdog の状態変化も SSE で配信されます。ログ監視ページとダッシュボードのバナーに表示されます。</p>
+
+        <table>
+          <thead>
+            <tr><th>システムイベントの内容</th><th>発火タイミング</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>ポスト試合自動処理 開始</td>
+              <td>OBS リプレイバッファ保存完了後</td>
+            </tr>
+            <tr>
+              <td>リプレイ解析 完了 / 失敗</td>
+              <td>replay_parser によるパース終了時</td>
+            </tr>
+            <tr>
+              <td>動画の自動リンク 成功 / 失敗</td>
+              <td>録画フォルダのスキャン完了時</td>
+            </tr>
+            <tr>
+              <td>キルオフセット計算 完了 / 失敗</td>
+              <td>動画リンク成功後のオフセット計算終了時</td>
+            </tr>
+            <tr>
+              <td>OBS 接続 / 切断</td>
+              <td>OBS Watchdog による 10 秒ごとのハートビートで接続状態が変化したとき</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">OBS Watchdog について</span>
+            <p><code>log_monitor_api</code> は 10 秒ごとに OBS WebSocket への接続を確認し、切断を検出すると自動で再接続を試みます。OBS を起動したまま suite を再起動しなくても、しばらくすると OBS 連携が復活します。</p>
+          </div>
+        </div>
+      </section>
+
       <section id="log-path">
-        <h2><span class="h2-num">4</span>ログパスの設定</h2>
+        <h2><span class="h2-num">5</span>ログパスの設定</h2>
         <p>tail 対象は <code>~/.fortnite-suite/config.json</code> の <code>log_path</code> で指定します。設定ページ（<a href="./03_dashboard_settings.html#fields">03 章 §3</a>）で編集できます。</p>
 
         <div class="code-wrap">

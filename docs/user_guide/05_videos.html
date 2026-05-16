@@ -211,7 +211,7 @@
 
       <section id="trim">
         <h2><span class="h2-num">8</span>トリミング実行</h2>
-        <p>I フレームのボタンを 1 つ選び、緑の「<strong>ここから末尾まで切り出す</strong>」ボタンをクリックすると、その位置から動画の末尾までを <code>obs_recording_dir</code> 配下に出力します。</p>
+        <p>I フレームのボタンを 1 つ選び、緑の「<strong>ここから末尾まで切り出す</strong>」ボタンをクリックすると、その位置から動画の末尾までを切り出します。</p>
         <figure class="figure">
           <img src="./assets/img/05_07_trim_done.png" alt="トリミング完了後の出力パス表示" loading="lazy" />
           <figcaption>図 5.7 — トリミング完了。出力パス + サイズ + 長さを表示</figcaption>
@@ -222,6 +222,14 @@
           <div class="callout-body">
             <span class="callout-title">処理時間の目安</span>
             <p>無劣化のストリームコピーで処理されるため、再エンコードは発生しません。出力サイズと尺によりますが、数秒〜十数秒で完了します。</p>
+          </div>
+        </div>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">出力先フォルダ</span>
+            <p>トリミング済みファイルは元の動画ファイルと同じフォルダ内の <code>_trimmed/</code> サブフォルダに <code>&lt;元ファイル名&gt;_trimmed.mp4</code> として保存されます。元の録画ファイルは変更されません。</p>
           </div>
         </div>
       </section>

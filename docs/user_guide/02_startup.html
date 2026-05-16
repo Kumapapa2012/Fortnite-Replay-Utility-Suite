@@ -31,12 +31,13 @@
         <p class="sidebar-heading">本章の内容</p>
         <ul class="sidebar-list" id="toc">
           <li><a href="#overview"><span class="sn">—</span>概要</a></li>
-          <li><a href="#start"><span class="sn">1</span>全サービス起動</a></li>
-          <li><a href="#smoke"><span class="sn">2</span>疎通確認</a></li>
-          <li><a href="#frontend"><span class="sn">3</span>フロント開発サーバー</a></li>
-          <li><a href="#status"><span class="sn">4</span>稼働状態の確認</a></li>
-          <li><a href="#stop"><span class="sn">5</span>全サービス停止</a></li>
-          <li><a href="#logs"><span class="sn">6</span>ログとプロセス管理</a></li>
+          <li><a href="#manage"><span class="sn">1</span>manage.ps1 で一括管理（推奨）</a></li>
+          <li><a href="#start"><span class="sn">2</span>個別スクリプトでの起動</a></li>
+          <li><a href="#smoke"><span class="sn">3</span>疎通確認</a></li>
+          <li><a href="#frontend"><span class="sn">4</span>フロント開発サーバー</a></li>
+          <li><a href="#status"><span class="sn">5</span>稼働状態の確認</a></li>
+          <li><a href="#stop"><span class="sn">6</span>全サービス停止</a></li>
+          <li><a href="#logs"><span class="sn">7</span>ログとプロセス管理</a></li>
         </ul>
       </div>
       <div class="sidebar-section">
@@ -70,9 +71,43 @@
         </div>
       </section>
 
+      <section id="manage">
+        <h2><span class="h2-num">1</span>manage.ps1 で一括管理（推奨）</h2>
+        <p><code>manage.ps1</code> は「起動 → 状態確認 → Smoke テスト」を 1 コマンドで行う統合スクリプトです。日常の起動・停止はこちらを使ってください。</p>
+
+        <h3 style="margin-top:24px; font-size:18px;">1.1 起動（バックエンドのみ）</h3>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">powershell</span></div>
+          <pre><code>pwsh scripts\manage.ps1</code></pre>
+        </div>
+        <p>6 サービスを起動 → 8 秒待機（サービス安定化）→ <code>status</code> 確認 → <code>smoke.py</code> 実行を自動で行います。全サービスが <span class="badge badge-ok">OK</span> になったら準備完了です。</p>
+
+        <h3 style="margin-top:24px; font-size:18px;">1.2 起動 + Vite 開発サーバーも同時に起動</h3>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">powershell</span></div>
+          <pre><code>pwsh scripts\manage.ps1 -Dev</code></pre>
+        </div>
+        <p><code>-Dev</code> を付けると、バックエンド起動後に Windows Terminal の新しいタブで Vite 開発サーバーが自動起動します（Windows Terminal が必要）。</p>
+
+        <h3 style="margin-top:24px; font-size:18px;">1.3 停止</h3>
+        <div class="code-wrap">
+          <div class="code-header"><span class="code-lang">powershell</span></div>
+          <pre><code>pwsh scripts\manage.ps1 -Stop</code></pre>
+        </div>
+        <p>全サービスと、起動中の Vite 開発サーバーを停止します。</p>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">特定サービスだけ操作する</span>
+            <p><code>-Service gateway</code> のように指定すると、そのサービスのみを対象にします（例: <code>pwsh scripts\manage.ps1 -Stop -Service log_monitor_api</code>）。</p>
+          </div>
+        </div>
+      </section>
+
       <section id="start">
-        <h2><span class="h2-num">1</span>全サービス起動</h2>
-        <p>PowerShell スクリプトで 6 サービスを背景起動します。</p>
+        <h2><span class="h2-num">2</span>個別スクリプトでの起動</h2>
+        <p><code>manage.ps1</code> の内部で使われている個別スクリプトを直接叩くこともできます。</p>
         <div class="code-wrap">
           <div class="code-header">
             <span class="code-lang">powershell</span>
@@ -87,7 +122,7 @@
       </section>
 
       <section id="smoke">
-        <h2><span class="h2-num">2</span>疎通確認</h2>
+        <h2><span class="h2-num">3</span>疎通確認</h2>
         <p>起動直後に Smoke テストで全サービスが応答するかを確認します。</p>
         <div class="code-wrap">
           <div class="code-header">
@@ -107,8 +142,8 @@
       </section>
 
       <section id="frontend">
-        <h2><span class="h2-num">3</span>フロント開発サーバー</h2>
-        <p>UI を触る場合は Vite の開発サーバーを起動します。本番運用時は Gateway がビルド済みフロントを配信するため、この手順は不要です。</p>
+        <h2><span class="h2-num">4</span>フロント開発サーバー</h2>
+        <p>UI を触る場合は Vite の開発サーバーを起動します。<code>manage.ps1 -Dev</code> を使うと自動起動できますが、手動でも起動できます。</p>
         <div class="code-wrap">
           <div class="code-header">
             <span class="code-lang">powershell</span>
@@ -131,7 +166,7 @@ npm run dev</code></pre>
       </section>
 
       <section id="status">
-        <h2><span class="h2-num">4</span>稼働状態の確認</h2>
+        <h2><span class="h2-num">5</span>稼働状態の確認</h2>
         <p>6 サービスがいま running かどうかは <code>status.ps1</code> で一覧できます。</p>
         <div class="code-wrap">
           <div class="code-header">
@@ -147,7 +182,7 @@ npm run dev</code></pre>
       </section>
 
       <section id="stop">
-        <h2><span class="h2-num">5</span>全サービス停止</h2>
+        <h2><span class="h2-num">6</span>全サービス停止</h2>
         <p>停止も 1 コマンドで行います。</p>
         <div class="code-wrap">
           <div class="code-header">
@@ -163,7 +198,7 @@ npm run dev</code></pre>
       </section>
 
       <section id="logs">
-        <h2><span class="h2-num">6</span>ログとプロセス管理</h2>
+        <h2><span class="h2-num">7</span>ログとプロセス管理</h2>
         <p>各サービスの動作ログ・標準出力・PID は次の場所に保存されます。何か挙動がおかしいときの一次調査ポイントです。</p>
         <table>
           <thead>

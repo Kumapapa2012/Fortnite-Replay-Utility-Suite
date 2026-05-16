@@ -72,6 +72,19 @@
             <p>コマンド 1 つで 6 サービスが立ち上がり、<code>scripts/smoke.py</code> が全 <span class="badge badge-ok">OK</span> を返す状態になること。</p>
           </div>
         </div>
+
+        <div class="callout callout-ok">
+          <span class="callout-icon">✦</span>
+          <div class="callout-body">
+            <span class="callout-title">セットアップを一括で済ませる（推奨）</span>
+            <p>§4（Python 環境）・§7（設定ファイル生成）・§8（.env コピー）の 3 ステップは、以下のスクリプト 1 本にまとまっています。</p>
+            <div class="code-wrap" style="margin-top:10px">
+              <div class="code-header"><span class="code-lang">powershell</span></div>
+              <pre><code>pwsh scripts\setup.ps1</code></pre>
+            </div>
+            <p style="margin-top:8px;">§5（Node.js パッケージ）と §6（.NET 確認）は手動で行ってください。setup.ps1 が完了したら §8 Step 2 で <code>OBS_PASSWORD</code> を書き換え、§9 の動作確認に進めます。</p>
+          </div>
+        </div>
       </section>
 
       <!-- ── PREREQUISITES ── -->
@@ -86,7 +99,7 @@
           <tbody>
             <tr><td>Windows</td><td>11 (64bit)</td><td>OS</td></tr>
             <tr><td>Python</td><td>3.11 以降</td><td>Gateway と 4 つの API サービス</td></tr>
-            <tr><td>.NET SDK</td><td>9.0 以降</td><td>replay_parser（<code>.replay</code> のパース）</td></tr>
+            <tr><td>.NET SDK</td><td>10.0 以降</td><td>replay_parser（<code>.replay</code> のパース）</td></tr>
             <tr><td>Node.js</td><td>20 以降</td><td>フロントエンド（Vite + React）</td></tr>
             <tr><td>ffmpeg / ffprobe</td><td>最新安定版</td><td>録画動画のトリミング</td></tr>
             <tr><td><a href="https://obsproject.com/ja/download" target="_blank" rel="noopener">OBS Studio</a></td><td>最新版</td><td>録画・リプレイバッファ・WebSocket</td></tr>
@@ -285,7 +298,7 @@ cd ..</code></pre>
           </div>
           <pre><code>dotnet --list-sdks</code></pre>
         </div>
-        <p>一覧に <code>9.0.x</code> が含まれていれば OK です。</p>
+        <p>一覧に <code>10.0.x</code> が含まれていれば OK です。</p>
       </section>
 
       <!-- ── CONFIG ── -->
