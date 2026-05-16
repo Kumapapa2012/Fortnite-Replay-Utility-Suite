@@ -154,7 +154,7 @@ def _require_tools() -> tuple[str, str]:
     if not (ff and ff.available and ff.path and fp and fp.available and fp.path):
         raise HTTPException(
             status_code=503,
-            detail="ffmpeg / ffprobe が見つかりません。PATH を確認してください。",
+            detail="ffmpeg / ffprobe not found. Check your PATH.",
         )
     return ff.path, fp.path
 
@@ -183,7 +183,7 @@ def _validate_under(path: str, allowed_roots: list[Path]) -> Path:
             continue
     raise HTTPException(
         status_code=400,
-        detail=f"許可されていないパスです: {path}",
+        detail=f"Path not allowed: {path}",
     )
 
 
@@ -199,7 +199,7 @@ async def list_videos() -> dict:
     if root is None:
         raise HTTPException(
             status_code=404,
-            detail="録画フォルダが見つかりません。obs.recordings_dir を設定してください。",
+            detail="Recordings folder not found. Set obs.recordings_dir.",
         )
     exts = {".mp4", ".mkv", ".mov"}
     items: list[dict] = []
@@ -225,10 +225,10 @@ async def thumbnail(
     ffmpeg, _ = _require_tools()
     root = _recordings_dir()
     if root is None:
-        raise HTTPException(status_code=404, detail="録画フォルダが見つかりません。")
+        raise HTTPException(status_code=404, detail="Recordings folder not found.")
     resolved = _validate_under(path, [root])
     if not resolved.is_file():
-        raise HTTPException(status_code=404, detail="動画ファイルが見つかりません。")
+        raise HTTPException(status_code=404, detail="Video file not found.")
     try:
         jpeg = await asyncio.to_thread(extract_thumbnail, ffmpeg, str(resolved), offset_sec)
     except Exception as e:
@@ -244,7 +244,7 @@ async def _fetch_replay_json(replay_path: str) -> dict:
             json={"replayPath": replay_path},
         )
     except httpx.HTTPError as e:
-        raise HTTPException(status_code=503, detail=f"replay_parser 接続失敗: {e}")
+        raise HTTPException(status_code=503, detail=f"Connection to replay_parser failed: {e}")
     if r.status_code != 200:
         detail: str
         try:
@@ -273,7 +273,7 @@ async def videos_for_replay(body: VideosForReplayBody) -> dict:
     if root is None:
         raise HTTPException(
             status_code=404,
-            detail="録画フォルダが見つかりません。obs.recordings_dir を設定してください。",
+            detail="Recordings folder not found. Set obs.recordings_dir.",
         )
     cfg = global_config.load()
     try:
@@ -320,7 +320,7 @@ async def videos_for_replay(body: VideosForReplayBody) -> dict:
             try:
                 duration = await asyncio.to_thread(probe_duration, ffprobe, str(entry))
             except Exception as e:
-                reasons.append(f"ffprobe 失敗: {e}")
+                reasons.append(f"ffprobe failed: {e}")
             else:
                 # Rule 3: apply only when the match fits within the replay buffer.
                 if apply_duration_rule and (match_end - timedelta(seconds=duration)) > match_start:
@@ -363,16 +363,16 @@ async def candidates(body: CandidatesBody) -> dict:
     _, ffprobe = _require_tools()
     roots = [r for r in (_recordings_dir(), _replays_root()) if r]
     if not roots:
-        raise HTTPException(status_code=503, detail="録画/リプレイのルートが未設定です。")
+        raise HTTPException(status_code=503, detail="Recording/replay root is not configured.")
 
     video = _validate_under(body.video_path, [r for r in [_recordings_dir()] if r] or roots)
     if not video.is_file():
-        raise HTTPException(status_code=404, detail=f"動画が見つかりません: {body.video_path}")
+        raise HTTPException(status_code=404, detail=f"Video not found: {body.video_path}")
 
     try:
         duration = await asyncio.to_thread(probe_duration, ffprobe, str(video))
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"ffprobe 失敗: {e}")
+        raise HTTPException(status_code=422, detail=f"ffprobe failed: {e}")
 
     vmeta = video_meta(str(video), duration)
     replay = await _fetch_replay_json(body.replay_path)
@@ -406,19 +406,19 @@ async def keyframes(body: KeyframesBody) -> dict:
     _, ffprobe = _require_tools()
     root = _recordings_dir()
     if root is None:
-        raise HTTPException(status_code=404, detail="録画フォルダが見つかりません。")
+        raise HTTPException(status_code=404, detail="Recordings folder not found.")
     video = _validate_under(body.video_path, [root])
     if not video.is_file():
-        raise HTTPException(status_code=404, detail="動画が見つかりません。")
+        raise HTTPException(status_code=404, detail="Video not found.")
     if body.range_sec <= 0 or body.range_sec > 120:
-        raise HTTPException(status_code=400, detail="rangeSec は 0-120 秒で指定してください。")
+        raise HTTPException(status_code=400, detail="rangeSec must be between 0 and 120 seconds.")
 
     try:
         frames = await asyncio.to_thread(
             find_keyframes, ffprobe, str(video), body.around_offset_sec, body.range_sec
         )
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"ffprobe 失敗: {e}")
+        raise HTTPException(status_code=422, detail=f"ffprobe failed: {e}")
 
     return {
         "videoPath": str(video),
@@ -435,19 +435,19 @@ async def trim(body: TrimBody) -> dict:
     ffmpeg, ffprobe = _require_tools()
     root = _recordings_dir()
     if root is None:
-        raise HTTPException(status_code=404, detail="録画フォルダが見つかりません。")
+        raise HTTPException(status_code=404, detail="Recordings folder not found.")
     video = _validate_under(body.video_path, [root])
     if not video.is_file():
-        raise HTTPException(status_code=404, detail="動画が見つかりません。")
+        raise HTTPException(status_code=404, detail="Video not found.")
 
     try:
         duration = await asyncio.to_thread(probe_duration, ffprobe, str(video))
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"ffprobe 失敗: {e}")
+        raise HTTPException(status_code=422, detail=f"ffprobe failed: {e}")
     if body.start_offset_sec < 0 or body.start_offset_sec >= duration:
         raise HTTPException(
             status_code=400,
-            detail=f"startOffsetSec は 0 以上 duration({duration:.2f}) 未満で指定してください。",
+            detail=f"startOffsetSec must be >= 0 and < duration ({duration:.2f}).",
         )
 
     out_path = Path(body.output_path) if body.output_path else video.parent / f"{video.stem}_trimmed{video.suffix}"
@@ -456,7 +456,7 @@ async def trim(body: TrimBody) -> dict:
     r = await asyncio.to_thread(trim_copy, ffmpeg, str(video), body.start_offset_sec, str(out_path))
     if r.returncode != 0 or not out_path.exists():
         stderr = (r.stderr or "").strip()[-800:]
-        raise HTTPException(status_code=422, detail=f"ffmpeg 失敗: {stderr}")
+        raise HTTPException(status_code=422, detail=f"ffmpeg failed: {stderr}")
 
     try:
         out_duration = await asyncio.to_thread(probe_duration, ffprobe, str(out_path))
@@ -486,17 +486,17 @@ async def kill_compilation(body: KillCompilationBody) -> dict:
     ffmpeg, ffprobe = _require_tools()
     root = _recordings_dir()
     if root is None:
-        raise HTTPException(status_code=404, detail="録画フォルダが見つかりません。")
+        raise HTTPException(status_code=404, detail="Recordings folder not found.")
     video = _validate_under(body.video_path, [root])
     if not video.is_file():
-        raise HTTPException(status_code=404, detail="動画が見つかりません。")
+        raise HTTPException(status_code=404, detail="Video not found.")
     if not body.kill_offsets:
-        raise HTTPException(status_code=400, detail="killOffsets が空です。")
+        raise HTTPException(status_code=400, detail="killOffsets is empty.")
 
     try:
         total_duration = await asyncio.to_thread(probe_duration, ffprobe, str(video))
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"ffprobe 失敗: {e}")
+        raise HTTPException(status_code=422, detail=f"ffprobe failed: {e}")
 
     tmp_dir = video.parent / "_kill_clips_tmp"
     tmp_dir.mkdir(exist_ok=True)
@@ -522,7 +522,7 @@ async def kill_compilation(body: KillCompilationBody) -> dict:
             if r.returncode != 0 or not Path(clip_path).exists():
                 raise HTTPException(
                     status_code=422,
-                    detail=f"クリップ {i + 1} の切り出しに失敗: {(r.stderr or '').strip()[-400:]}",
+                    detail=f"Failed to cut clip {i + 1}: {(r.stderr or '').strip()[-400:]}",
                 )
             clip_paths.append(clip_path)
             clip_infos.append({
@@ -537,7 +537,7 @@ async def kill_compilation(body: KillCompilationBody) -> dict:
         if r.returncode != 0 or not out_path.exists():
             raise HTTPException(
                 status_code=422,
-                detail=f"クリップ結合に失敗: {(r.stderr or '').strip()[-400:]}",
+                detail=f"Failed to concatenate clips: {(r.stderr or '').strip()[-400:]}",
             )
     finally:
         for cp in clip_paths:

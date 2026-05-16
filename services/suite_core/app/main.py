@@ -294,7 +294,7 @@ async def patch_match_state(match_id: str, body: MatchStatePatch) -> dict:
         if trim_start is None:
             raise HTTPException(
                 status_code=400,
-                detail="trim_start_offset_sec が未設定です。先にトリミング情報を登録してください。",
+                detail="trim_start_offset_sec is not set. Register trimming info first.",
             )
         kwargs["kill_offsets_in_trimmed"] = [
             round(off - trim_start, 3)
@@ -336,7 +336,7 @@ async def compute_kills(match_id: str) -> dict:
     if not user_player_id:
         raise HTTPException(
             status_code=400,
-            detail="epic_display_id が未設定です。設定ページで自分の PlayerId を登録してください。",
+            detail="epic_display_id is not set. Register your PlayerId on the Settings page.",
         )
 
     if not _matches_cache:
@@ -345,18 +345,18 @@ async def compute_kills(match_id: str) -> dict:
     if target is None:
         raise HTTPException(status_code=404, detail=f"match not found: {match_id}")
     if not target.get("has_video"):
-        raise HTTPException(status_code=400, detail="録画動画がありません。先に動画をリンクしてください。")
+        raise HTTPException(status_code=400, detail="No video linked. Link a video first.")
 
     state = match_state.load(match_id)
     if state["trim_start_offset_sec"] is None:
         raise HTTPException(
             status_code=400,
-            detail="トリミングが未完了です。先にトリミング情報を登録してください。",
+            detail="Trim not completed. Register trimming info first.",
         )
 
     # candidates API を呼び出して自プレイヤーのキルを取得
     if _client is None:
-        raise HTTPException(status_code=503, detail="HTTP クライアントが初期化されていません。")
+        raise HTTPException(status_code=503, detail="HTTP client is not initialized.")
     try:
         r = await _client.post(
             f"{PREPARE_UPLOAD_BASE}/api/candidates",
@@ -366,10 +366,10 @@ async def compute_kills(match_id: str) -> dict:
             },
         )
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"candidates API 呼び出し失敗: {e}")
+        raise HTTPException(status_code=502, detail=f"candidates API call failed: {e}")
 
     if r.status_code != 200:
-        raise HTTPException(status_code=422, detail=f"candidates API エラー: {r.text[:400]}")
+        raise HTTPException(status_code=422, detail=f"candidates API error: {r.text[:400]}")
 
     candidates = r.json().get("candidates", [])
 
@@ -381,7 +381,7 @@ async def compute_kills(match_id: str) -> dict:
     if trim_start is None:
         raise HTTPException(
             status_code=400,
-            detail="match_start イベントが candidates に含まれておらず、trim_start_offset_sec も未設定です。",
+            detail="match_start event not found in candidates and trim_start_offset_sec is not set.",
         )
 
     match_state.update(
@@ -500,7 +500,7 @@ async def summarize_match(match_id: str, body: SummarizeBody) -> dict:
     if not user_player_id:
         raise HTTPException(
             status_code=400,
-            detail="epic_display_id が未設定です。設定ページでプレイヤー ID を登録してください。",
+            detail="epic_display_id is not set. Register your player ID on the Settings page.",
         )
 
     if not _matches_cache:
@@ -539,7 +539,7 @@ class LinkVideoBody(BaseModel):
 async def link_video(match_id: str, body: LinkVideoBody) -> dict:
     """録画動画をマッチに手動リンク（または null でリンク解除）する。"""
     if body.video_path is not None and not Path(body.video_path).exists():
-        raise HTTPException(status_code=400, detail=f"ファイルが見つかりません: {body.video_path}")
+        raise HTTPException(status_code=400, detail=f"File not found: {body.video_path}")
 
     match_state.update(match_id, video_path=body.video_path)
     _update_cached_match(match_id)
@@ -564,11 +564,11 @@ async def auto_link_video(match_id: str) -> dict:
     )
     replay_info = next((r for r in replays if _match_id(r.match_started_at) == match_id), None)
     if replay_info is None:
-        raise HTTPException(status_code=404, detail="リプレイファイルが見つかりません。")
+        raise HTTPException(status_code=404, detail="Replay file not found.")
 
     video_info = await _do_auto_link_video(match_id, replay_info)
     if video_info is None:
-        raise HTTPException(status_code=404, detail="条件に合う動画が見つかりませんでした。")
+        raise HTTPException(status_code=404, detail="No matching video found.")
 
     _update_cached_match(match_id)
     log.info("auto_link_video: match=%s linked=%s", match_id, video_info["path"])
@@ -621,14 +621,14 @@ async def post_match_automation(body: PostMatchBody) -> dict:
     if not user_player_id:
         raise HTTPException(
             status_code=400,
-            detail="epic_display_id が未設定です。設定ページでプレイヤー ID を登録してください。",
+            detail="epic_display_id is not set. Register your player ID on the Settings page.",
         )
 
     suite_cfg = config_store.load_for_api(_obs_source)
     demos = Path(suite_cfg["demos_dir"])
     replays = await asyncio.to_thread(scan_replays, demos)
     if not replays:
-        raise HTTPException(status_code=404, detail="リプレイファイルが見つかりません。")
+        raise HTTPException(status_code=404, detail="Replay file not found.")
 
     latest = replays[0]  # scan_replays は match_started_at 降順ソート済み
     match_id = _match_id(latest.match_started_at)

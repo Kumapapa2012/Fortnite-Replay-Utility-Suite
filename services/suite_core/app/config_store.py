@@ -59,7 +59,7 @@ def save_partial(updates: dict[str, Any]) -> dict[str, Any]:
     """Validate + merge updates into the global config. Returns post-save view."""
     bad = set(updates) - _ALLOWED_KEYS
     if bad:
-        raise ValueError(f"未知のキー: {sorted(bad)}")
+        raise ValueError(f"Unknown keys: {sorted(bad)}")
 
     _validate(updates)
 
@@ -88,18 +88,18 @@ def _validate(updates: dict[str, Any]) -> None:
     if "user_player_id" in updates:
         v = updates["user_player_id"]
         if not isinstance(v, str) or len(v) > 128:
-            raise ValueError("user_player_id は 128 文字以内の文字列で指定してください。")
+            raise ValueError("user_player_id must be a string of 128 characters or fewer.")
     for key in ("demos_dir", "obs_recording_dir"):
         if key in updates:
             v = updates[key]
             if not isinstance(v, str) or not v:
-                raise ValueError(f"{key} は空にできません。")
+                raise ValueError(f"{key} must not be empty.")
             if not Path(v).expanduser().is_dir():
-                raise ValueError(f"{key}: ディレクトリが存在しません ({v})")
+                raise ValueError(f"{key}: directory does not exist ({v})")
     if "log_path" in updates:
         v = updates["log_path"]
         if not isinstance(v, str) or not v:
-            raise ValueError("log_path は空にできません。")
+            raise ValueError("log_path must not be empty.")
         p = Path(v).expanduser()
         if not (p.exists() or p.parent.is_dir()):
-            raise ValueError(f"log_path: ファイルまたは親ディレクトリが見つかりません ({v})")
+            raise ValueError(f"log_path: file or parent directory not found ({v})")

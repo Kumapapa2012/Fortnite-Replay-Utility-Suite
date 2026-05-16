@@ -76,7 +76,7 @@ def _parse_mm_ss(s: str) -> float:
         return int(parts[0]) * 60 + float(parts[1])
     if len(parts) == 3:
         return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
-    raise ValueError(f"時刻フォーマットが不正: {s!r}")
+    raise ValueError(f"Invalid time format: {s!r}")
 
 
 def replay_meta(replay_path: str, replay: dict[str, Any]) -> ReplayMeta:
@@ -136,7 +136,7 @@ def build_candidates(
             row.update(extra)
             result.append(row)
 
-    _push("match_start", rmeta.match_started_at, "試合開始")
+    _push("match_start", rmeta.match_started_at, "Match start")
 
     names = _player_label_map(replay)
     kill_idx = 0
@@ -179,7 +179,7 @@ def build_candidates(
             )
 
     match_end = rmeta.match_started_at + timedelta(seconds=rmeta.match_length_sec)
-    _push("match_end", match_end, "試合終了")
+    _push("match_end", match_end, "Match end")
 
     result.sort(key=lambda r: r["videoOffsetSec"])
     return result

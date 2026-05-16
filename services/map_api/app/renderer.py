@@ -89,12 +89,12 @@ def render_route(
     """Paint the player's route on the map and return a PNG byte blob."""
     entries = build_location_entries(replay, player_id, base_params)
     if not entries:
-        raise ValueError("指定プレイヤーの移動ログが空です。")
+        raise ValueError("Movement log for the specified player is empty.")
 
     map_cfg = base_params["map_image"]
     map_path = assets_dir / map_cfg["path"]
     if not map_path.exists():
-        raise FileNotFoundError(f"マップ背景画像が見つかりません: {map_path}")
+        raise FileNotFoundError(f"Map background image not found: {map_path}")
 
     expected_w = map_cfg["width"]
     expected_h = map_cfg["height"]
@@ -102,7 +102,7 @@ def render_route(
     img = Image.open(map_path).copy()
     if img.size != (expected_w, expected_h):
         raise ValueError(
-            f"マップ画像サイズが期待値と異なります: got {img.size}, expected ({expected_w},{expected_h})"
+            f"Map image size mismatch: got {img.size}, expected ({expected_w},{expected_h})"
         )
 
     z_values = [e["world"]["Z"] for e in entries]

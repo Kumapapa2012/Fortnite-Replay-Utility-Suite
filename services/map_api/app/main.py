@@ -90,9 +90,9 @@ def _run_map_update_sync(timeout: float) -> dict:
     """
     node = shutil.which("node")
     if node is None:
-        return {"ok": False, "error": "node.exe が PATH に見つかりません。Node.js 20+ をインストールしてください。"}
+        return {"ok": False, "error": "node.exe not found in PATH. Install Node.js 20+."}
     if not MAP_TOOL_SCRIPT.exists():
-        return {"ok": False, "error": f"スクリプトが見つかりません: {MAP_TOOL_SCRIPT}"}
+        return {"ok": False, "error": f"Script not found: {MAP_TOOL_SCRIPT}"}
 
     prev = _read_map_version()
     try:
@@ -106,7 +106,7 @@ def _run_map_update_sync(timeout: float) -> dict:
             errors="replace",
         )
     except subprocess.TimeoutExpired:
-        return {"ok": False, "error": f"スクリプトが {timeout:.0f} 秒を超えても終了しませんでした。"}
+        return {"ok": False, "error": f"Script did not finish within {timeout:.0f} seconds."}
     except Exception as e:
         return {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
@@ -201,7 +201,7 @@ async def _fetch_replay_json(replay_path: str) -> dict:
             json={"replayPath": replay_path},
         )
     except httpx.HTTPError as e:
-        raise HTTPException(status_code=503, detail=f"replay_parser への接続に失敗: {e}")
+        raise HTTPException(status_code=503, detail=f"Connection to replay_parser failed: {e}")
     if r.status_code != 200:
         detail: str
         try:
@@ -221,7 +221,7 @@ async def players(replay_path: str = Query(..., alias="replayPath")) -> dict:
 @app.post("/api/render")
 async def render(body: RenderBody) -> Response:
     if _base_params is None:
-        raise HTTPException(status_code=500, detail="base_params.json の読込に失敗しています。")
+        raise HTTPException(status_code=500, detail="Failed to load base_params.json.")
     replay = await _fetch_replay_json(body.replay_path)
     try:
         result = render_route(
