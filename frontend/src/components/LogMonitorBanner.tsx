@@ -44,7 +44,7 @@ export function LogMonitorBanner({ compact = false }: { compact?: boolean }) {
             </div>
             {!compact && status.lastEvent && (
               <div className="text-xs text-[var(--color-muted)] mt-0.5 truncate">
-                {t("logMonitor.latest")}: {status.lastEvent.icon} {status.lastEvent.label} (
+                {t("logMonitor.latest")}: {status.lastEvent.icon} {t(`event.${status.lastEvent.eventId}`, { defaultValue: status.lastEvent.label })} (
                 {status.lastEvent.detectedAt})
               </div>
             )}

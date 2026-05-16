@@ -28,7 +28,7 @@ function EventRow({ ev }: { ev: StreamedEvent }) {
       <td className="py-1.5 text-xs font-mono text-[var(--color-muted)]">
         {ev.phase}
       </td>
-      <td className="py-1.5 text-xs">{ev.label}</td>
+      <td className="py-1.5 text-xs">{t(`event.${ev.eventId}`, { defaultValue: ev.label })}</td>
     </tr>
   );
 }

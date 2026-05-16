@@ -195,6 +195,26 @@
     "done": "Done.",
     "backToMatchDetail": "← Back to Match Detail"
   },
+  "event": {
+    "game_launch": "Fortnite launched",
+    "lobby_enter": "Entered lobby",
+    "matchmaking_start": "Matchmaking started",
+    "session_found": "Server found",
+    "replay_writing": "Replay write started",
+    "map_loaded": "Map loaded",
+    "phase_warmup": "Warmup started",
+    "phase_aircraft": "Boarded battle bus",
+    "bus_flying": "Bus flying",
+    "phase_safezones": "Match started (drop available)",
+    "storm_forming": "Storm forming",
+    "storm_holding": "Storm holding",
+    "player_kill": "Kill!",
+    "player_death": "Death",
+    "victory_royale": "Victory Royale!",
+    "match_end": "Match ended",
+    "return_lobby": "Returned to lobby",
+    "game_exit": "Fortnite exited"
+  },
   "systemEvent": {
     "post_match_started": "Post-match automation started...",
     "post_match_refresh": "Refreshing match list...",

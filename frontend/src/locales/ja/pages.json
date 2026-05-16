@@ -194,6 +194,26 @@
     "done": "完了しました。",
     "backToMatchDetail": "← マッチ詳細に戻る"
   },
+  "event": {
+    "game_launch": "Fortnite 起動",
+    "lobby_enter": "ロビーに入った",
+    "matchmaking_start": "マッチメイキング開始",
+    "session_found": "サーバー発見",
+    "replay_writing": "リプレイ書き込み開始",
+    "map_loaded": "マップロード完了",
+    "phase_warmup": "ウォームアップ開始",
+    "phase_aircraft": "バトルバス搭乗",
+    "bus_flying": "バス発車",
+    "phase_safezones": "試合開始（降下可能）",
+    "storm_forming": "ストーム収縮開始",
+    "storm_holding": "ストーム停止",
+    "player_kill": "キル！",
+    "player_death": "死亡",
+    "victory_royale": "Victory Royale！",
+    "match_end": "試合終了",
+    "return_lobby": "ロビーに戻った",
+    "game_exit": "Fortnite 終了"
+  },
   "systemEvent": {
     "post_match_started": "自動処理を開始中...",
     "post_match_refresh": "マッチリストを更新中...",
