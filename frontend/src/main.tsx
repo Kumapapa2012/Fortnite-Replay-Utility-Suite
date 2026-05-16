@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import App from "./App";
 import { LogMonitorProvider } from "./contexts/LogMonitorContext";
+import "./i18n";
 import "./index.css";
 
 const queryClient = new QueryClient({

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../components/PageHeader";
 import { ApiError } from "../lib/api";
@@ -12,6 +13,7 @@ import {
 } from "../lib/prepareUpload";
 import { replayParserApi, type ReplayFileInfo } from "../lib/replayParser";
 import { suiteCoreApi } from "../lib/suiteCore";
+import { useLangPath } from "../hooks/useLangPath";
 
 function bytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -28,15 +30,13 @@ function fromEpoch(s: number): string {
   }
 }
 
-function toolLine(t: { available: boolean; version: string | null } | undefined): string {
-  if (!t) return "?";
-  return t.available ? `OK (${t.version ?? "?"})` : "未検出";
-}
-
 const errText = (e: unknown) =>
   e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
 
 export function Videos() {
+  const { t } = useTranslation("pages");
+  const { t: tc } = useTranslation();
+  const langPath = useLangPath();
   const [searchParams] = useSearchParams();
   const matchId = searchParams.get("matchId") ?? null;
   const qc = useQueryClient();
@@ -66,7 +66,7 @@ export function Videos() {
   const [keyframes, setKeyframes] = useState<KeyframeHit[]>([]);
   const [chosenKeyframe, setChosenKeyframe] = useState<KeyframeHit | null>(null);
 
-  // Newest replay first. Backend order may vary — sort defensively by modifiedAt desc.
+  // Newest replay first — sort defensively by modifiedAt desc.
   const replayList = useMemo<ReplayFileInfo[]>(() => {
     const list = replays.data?.replays ?? [];
     return [...list].sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt));
@@ -129,6 +129,11 @@ export function Videos() {
     resetDerivedState();
   };
 
+  const toolAvailable = (tool: { available: boolean; version: string | null } | undefined) => {
+    if (!tool) return "?";
+    return tool.available ? `OK (${tool.version ?? "?"})` : t("videos.ffmpegMissing");
+  };
+
   const stepOffset = matchId ? -1 : 0;
 
   const filteredVideos: FilteredVideo[] = videosForReplay.data?.videos ?? [];
@@ -139,61 +144,63 @@ export function Videos() {
   return (
     <div>
       <PageHeader
-        title="動画"
-        subtitle={videosForReplay.data?.recordingsDir ?? "リプレイを選択すると候補動画を抽出します"}
+        title={t("videos.title")}
+        subtitle={videosForReplay.data?.recordingsDir ?? t("videos.subtitle")}
         actions={
           <button
             onClick={() => replays.refetch()}
             className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)]"
           >
-            {replays.isFetching ? "更新中…" : "再スキャン"}
+            {replays.isFetching ? tc("action.refreshing") : tc("action.rescan")}
           </button>
         }
       />
 
       <div className="p-6 space-y-5">
         <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3 text-xs text-[var(--color-muted)] flex flex-wrap gap-4">
-          <span>ffmpeg: {toolLine(health.data?.ffmpeg)}</span>
-          <span>ffprobe: {toolLine(health.data?.ffprobe)}</span>
+          <span>ffmpeg: {toolAvailable(health.data?.ffmpeg)}</span>
+          <span>ffprobe: {toolAvailable(health.data?.ffprobe)}</span>
           {health.error && (
-            <span className="text-rose-400">ヘルス取得失敗: {errText(health.error)}</span>
+            <span className="text-rose-400">
+              {t("videos.healthFailed", { error: errText(health.error) })}
+            </span>
           )}
         </section>
 
         {matchId ? (
           <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-xs flex items-center justify-between">
             <span className="text-[var(--color-muted)]">
-              マッチ <span className="font-mono text-[var(--color-text)]">{matchId}</span> のトリミング
+              {t("videos.trimTitle", { id: matchId })}
               {replayPath && (
                 <span className="ml-2 opacity-60">— {replayPath.split(/[\\/]/).pop()}</span>
               )}
             </span>
             <Link
-              to={`/matches/${encodeURIComponent(matchId)}`}
+              to={langPath(`/matches/${encodeURIComponent(matchId)}`)}
               className="rounded border border-[var(--color-border)] px-2 py-1 hover:border-[var(--color-accent)]"
             >
-              ← マッチに戻る
+              {t("videos.backToMatch")}
             </Link>
           </section>
         ) : (
           <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
             <h3 className="border-b border-[var(--color-border)] px-4 py-2 text-sm font-medium">
-              1. リプレイを選ぶ（新しい順）
+              {t("videos.step1SelectReplay")}
             </h3>
             {replays.isLoading ? (
-              <p className="p-4 text-sm text-[var(--color-muted)]">読み込み中…</p>
+              <p className="p-4 text-sm text-[var(--color-muted)]">{tc("action.loading")}</p>
             ) : replays.error ? (
               <p className="p-4 text-sm text-rose-300">{errText(replays.error)}</p>
             ) : replayList.length === 0 ? (
-              <p className="p-4 text-sm text-[var(--color-muted)]">リプレイが見つかりません。</p>
+              <p className="p-4 text-sm text-[var(--color-muted)]">{t("videos.noReplays")}</p>
             ) : (
               <div className="max-h-80 overflow-auto">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-[var(--color-surface)]">
                     <tr className="text-left text-xs text-[var(--color-muted)]">
-                      <th className="px-4 py-2 font-medium">ファイル</th>
-                      <th className="px-4 py-2 font-medium">更新日時</th>
-                      <th className="px-4 py-2 font-medium text-right">サイズ</th>
+                      <th className="px-4 py-2 font-medium">{t("videos.colFile")}</th>
+                      <th className="px-4 py-2 font-medium">{t("videos.colDate")}</th>
+                      <th className="px-4 py-2 font-medium text-right">{t("videos.colSize")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -224,40 +231,37 @@ export function Videos() {
         {replayPath && (
           <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
             <h3 className="border-b border-[var(--color-border)] px-4 py-2 text-sm font-medium">
-              {2 + stepOffset}. 候補の動画を選ぶ
+              {t("videos.stepCandidates", { n: 2 + stepOffset })}
             </h3>
             {videosForReplay.isLoading ? (
-              <p className="p-4 text-sm text-[var(--color-muted)]">
-                リプレイをパースして試合時間と照合しています…
-              </p>
+              <p className="p-4 text-sm text-[var(--color-muted)]">{t("videos.parsing")}</p>
             ) : videosForReplay.error ? (
               <p className="p-4 text-sm text-rose-300">
-                候補抽出失敗: {errText(videosForReplay.error)}
+                {t("videos.candidateFailed", { error: errText(videosForReplay.error) })}
               </p>
             ) : videosForReplay.data ? (
               <>
                 <div className="border-b border-[var(--color-border)] px-4 py-2 text-xs text-[var(--color-muted)]">
-                  試合:{" "}
-                  {new Date(videosForReplay.data.matchStartedAt).toLocaleString()} 〜{" "}
-                  {new Date(videosForReplay.data.matchEndAt).toLocaleTimeString()} (
-                  {videosForReplay.data.matchLengthSec.toFixed(1)}s) / リプレイバッファ{" "}
-                  {(videosForReplay.data.replayBufferSec / 60).toFixed(0)}分
-                  {videosForReplay.data.durationRuleApplied ? "" : "（試合が長いため長さ判定はスキップ）"}
-                  {" — 候補 "}{filteredVideos.length} / 除外 {rejectedVideos.length}
+                  {t("videos.timeRange", {
+                    start: new Date(videosForReplay.data.matchStartedAt).toLocaleString(),
+                    end: new Date(videosForReplay.data.matchEndAt).toLocaleTimeString(),
+                    len: videosForReplay.data.matchLengthSec.toFixed(1),
+                    buf: (videosForReplay.data.replayBufferSec / 60).toFixed(0),
+                    included: filteredVideos.length,
+                    excluded: rejectedVideos.length,
+                  })}
                 </div>
                 {filteredVideos.length === 0 ? (
-                  <p className="p-4 text-sm text-[var(--color-muted)]">
-                    条件を満たす動画がありません。
-                  </p>
+                  <p className="p-4 text-sm text-[var(--color-muted)]">{t("videos.noCandidates")}</p>
                 ) : (
                   <div className="max-h-80 overflow-auto">
                     <table className="w-full text-sm">
                       <thead className="sticky top-0 bg-[var(--color-surface)]">
                         <tr className="text-left text-xs text-[var(--color-muted)]">
-                          <th className="px-4 py-2 font-medium">ファイル</th>
-                          <th className="px-4 py-2 font-medium">更新日時</th>
-                          <th className="px-4 py-2 font-medium text-right">長さ</th>
-                          <th className="px-4 py-2 font-medium text-right">サイズ</th>
+                          <th className="px-4 py-2 font-medium">{t("videos.colFile")}</th>
+                          <th className="px-4 py-2 font-medium">{t("videos.colDate")}</th>
+                          <th className="px-4 py-2 font-medium text-right">{t("videos.colDuration")}</th>
+                          <th className="px-4 py-2 font-medium text-right">{t("videos.colSize")}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -286,7 +290,7 @@ export function Videos() {
                 {rejectedVideos.length > 0 && (
                   <details className="border-t border-[var(--color-border)] px-4 py-2 text-xs">
                     <summary className="cursor-pointer text-[var(--color-muted)]">
-                      除外された {rejectedVideos.length} 件を表示
+                      {t("videos.showExcluded", { count: rejectedVideos.length })}
                     </summary>
                     <ul className="mt-2 space-y-1 font-mono">
                       {rejectedVideos.map((r) => (
@@ -316,11 +320,11 @@ export function Videos() {
                       onClick={() => candidatesMut.mutate()}
                       className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs text-white disabled:opacity-50"
                     >
-                      {candidatesMut.isPending ? "計算中…" : "オフセット候補を計算"}
+                      {candidatesMut.isPending ? t("videos.calcOffsetting") : t("videos.calcOffset")}
                     </button>
                     {candidatesMut.error && (
                       <p className="mt-2 text-xs text-rose-400">
-                        候補計算失敗: {errText(candidatesMut.error)}
+                        {t("videos.calcFailed", { error: errText(candidatesMut.error) })}
                       </p>
                     )}
                   </div>
@@ -333,13 +337,13 @@ export function Videos() {
         {candidatesMut.data && (
           <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
             <h3 className="border-b border-[var(--color-border)] px-4 py-2 text-sm font-medium">
-              {3 + stepOffset}. カット開始位置を選ぶ
+              {t("videos.stepCutStart", { n: 3 + stepOffset })}
             </h3>
             <div className="p-4 space-y-2">
               <p className="text-xs text-[var(--color-muted)]">
-                録画開始: {new Date(candidatesMut.data.video.recordingStartedAt).toLocaleString()} /
-                試合開始: {new Date(candidatesMut.data.replay.matchStartedAt).toLocaleString()} /
-                動画長: {candidatesMut.data.video.durationSec.toFixed(1)}s
+                {t("videos.recStart")}: {new Date(candidatesMut.data.video.recordingStartedAt).toLocaleString()} /
+                {t("videos.matchStart")}: {new Date(candidatesMut.data.replay.matchStartedAt).toLocaleString()} /
+                {t("videos.videoLen")}: {candidatesMut.data.video.durationSec.toFixed(1)}s
               </p>
               <div className="grid grid-cols-1 gap-1 md:grid-cols-2">
                 {candidatesMut.data.candidates.map((c) => (
@@ -365,11 +369,11 @@ export function Videos() {
                 onClick={() => keyframesMut.mutate()}
                 className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs text-white disabled:opacity-50"
               >
-                {keyframesMut.isPending ? "検索中…" : "この時刻の前後 10 秒でキーフレーム検索"}
+                {keyframesMut.isPending ? t("videos.searching") : t("videos.searchKeyframe")}
               </button>
               {keyframesMut.error && (
                 <p className="text-xs text-rose-400">
-                  キーフレーム失敗: {errText(keyframesMut.error)}
+                  {t("videos.keyframeFailed", { error: errText(keyframesMut.error) })}
                 </p>
               )}
             </div>
@@ -378,7 +382,9 @@ export function Videos() {
 
         {keyframes.length > 0 && (
           <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
-            <h3 className="text-sm font-medium">{4 + stepOffset}. キーフレームを選ぶ</h3>
+            <h3 className="text-sm font-medium">
+              {t("videos.stepSelectKf", { n: 4 + stepOffset })}
+            </h3>
             <div className="flex flex-wrap gap-2">
               {keyframes.map((k) => (
                 <button
@@ -399,24 +405,26 @@ export function Videos() {
               onClick={() => trimMut.mutate()}
               className="rounded-md bg-emerald-500 px-4 py-1.5 text-xs text-white disabled:opacity-50"
             >
-              {trimMut.isPending ? "トリミング中…" : "ここから末尾まで切り出す"}
+              {trimMut.isPending ? t("videos.trimming") : t("videos.trimFrom")}
             </button>
             {trimMut.error && (
-              <p className="text-xs text-rose-400">トリム失敗: {errText(trimMut.error)}</p>
+              <p className="text-xs text-rose-400">
+                {t("videos.trimFailed", { error: errText(trimMut.error) })}
+              </p>
             )}
             {trimMut.data && (
               <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs space-y-2">
-                <p className="font-medium text-emerald-300">完了しました。</p>
+                <p className="font-medium text-emerald-300">{t("videos.done")}</p>
                 <p className="font-mono break-all">{trimMut.data.outputPath}</p>
                 <p>
                   {bytes(trimMut.data.sizeBytes)} / {trimMut.data.durationSec.toFixed(1)}s
                 </p>
                 {matchId && (
                   <Link
-                    to={`/matches/${encodeURIComponent(matchId)}`}
+                    to={langPath(`/matches/${encodeURIComponent(matchId)}`)}
                     className="inline-block rounded-md border border-emerald-500/50 px-3 py-1.5 text-emerald-300 hover:bg-emerald-500/10"
                   >
-                    ← マッチ詳細に戻る
+                    {t("videos.backToMatchDetail")}
                   </Link>
                 )}
               </div>

@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { LogMonitorBanner } from "../components/LogMonitorBanner";
 import { PageHeader } from "../components/PageHeader";
 import { api } from "../lib/api";
+import { useLangPath } from "../hooks/useLangPath";
 
 interface UpstreamHealth {
   status: "ok" | "degraded" | "down";
@@ -26,6 +28,10 @@ function StatusDot({ status }: { status: UpstreamHealth["status"] }) {
 }
 
 export function Dashboard() {
+  const { t } = useTranslation("pages");
+  const { t: tc } = useTranslation();
+  const langPath = useLangPath();
+
   const { data, isLoading, error, refetch, isFetching } =
     useQuery<HealthFullResponse>({
       queryKey: ["health-full"],
@@ -36,34 +42,32 @@ export function Dashboard() {
   return (
     <div>
       <PageHeader
-        title="ダッシュボード"
-        subtitle="サービスの稼働状況"
+        title={t("dashboard.title")}
+        subtitle={t("dashboard.subtitle")}
         actions={
           <button
             onClick={() => refetch()}
             className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)]"
           >
-            {isFetching ? "更新中…" : "更新"}
+            {isFetching ? tc("action.refreshing") : tc("action.refresh")}
           </button>
         }
       />
       <div className="p-6 space-y-4">
         <LogMonitorBanner compact />
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <h3 className="text-sm font-medium mb-3">サービスの状態</h3>
+          <h3 className="text-sm font-medium mb-3">{t("dashboard.serviceStatus")}</h3>
           {isLoading ? (
-            <p className="text-sm text-[var(--color-muted)]">読み込み中…</p>
+            <p className="text-sm text-[var(--color-muted)]">{tc("action.loading")}</p>
           ) : error ? (
-            <p className="text-sm text-rose-400">
-              Gateway に接続できません。process_manager.py で起動してください。
-            </p>
+            <p className="text-sm text-rose-400">{t("dashboard.gatewayError")}</p>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-[var(--color-muted)]">
-                  <th className="pb-2">サービス</th>
-                  <th className="pb-2">ポート</th>
-                  <th className="pb-2">状態</th>
+                  <th className="pb-2">{t("dashboard.colService")}</th>
+                  <th className="pb-2">{t("dashboard.colPort")}</th>
+                  <th className="pb-2">{t("dashboard.colStatus")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -88,11 +92,11 @@ export function Dashboard() {
         </div>
 
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <h3 className="text-sm font-medium mb-2">クイックリンク</h3>
+          <h3 className="text-sm font-medium mb-2">{t("dashboard.quickLinks")}</h3>
           <ul className="text-sm space-y-1">
             <li>
-              <Link className="text-[var(--color-accent)] hover:underline" to="/replays">
-                リプレイ一覧 →
+              <Link className="text-[var(--color-accent)] hover:underline" to={langPath("/replays")}>
+                {t("dashboard.viewReplays")}
               </Link>
             </li>
           </ul>

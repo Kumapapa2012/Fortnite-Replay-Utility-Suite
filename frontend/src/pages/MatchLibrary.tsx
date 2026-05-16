@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../components/PageHeader";
 import { ApiError } from "../lib/api";
 import { suiteCoreApi, type Match } from "../lib/suiteCore";
+import { useLangPath } from "../hooks/useLangPath";
 
 function bytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -43,9 +45,12 @@ function Badge({ ok, label }: { ok: boolean; label: string }) {
 }
 
 function MatchCard({ m }: { m: Match }) {
+  const { t } = useTranslation("pages");
+  const langPath = useLangPath();
+
   return (
     <Link
-      to={`/matches/${encodeURIComponent(m.id)}`}
+      to={langPath(`/matches/${encodeURIComponent(m.id)}`)}
       className="block rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 hover:border-[var(--color-accent)] transition-colors"
     >
       <div className="flex items-start justify-between gap-3">
@@ -75,7 +80,7 @@ function MatchCard({ m }: { m: Match }) {
             {bytes(m.video.sizeBytes)}
           </p>
         ) : (
-          <p className="text-[var(--color-muted)] text-[11px]">🎬 動画未リンク</p>
+          <p className="text-[var(--color-muted)] text-[11px]">🎬 {t("matches.noVideoLinked")}</p>
         )}
       </div>
     </Link>
@@ -83,6 +88,8 @@ function MatchCard({ m }: { m: Match }) {
 }
 
 export function MatchLibrary() {
+  const { t } = useTranslation("pages");
+  const { t: tc } = useTranslation();
   const qc = useQueryClient();
   const matches = useQuery({
     queryKey: ["matches"],
@@ -96,11 +103,11 @@ export function MatchLibrary() {
   return (
     <div>
       <PageHeader
-        title="マッチ"
+        title={t("matches.title")}
         subtitle={
           matches.data
-            ? `${matches.data.totalCount} 件 (表示: ${matches.data.count})`
-            : "リプレイと録画動画のペア一覧"
+            ? t("matches.count", { total: matches.data.totalCount, count: matches.data.count })
+            : t("matches.subtitle")
         }
         actions={
           <button
@@ -108,26 +115,22 @@ export function MatchLibrary() {
             disabled={refreshMut.isPending}
             className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)] disabled:opacity-50"
           >
-            {refreshMut.isPending ? "スキャン中…" : "再スキャン"}
+            {refreshMut.isPending ? tc("action.scanning") : tc("action.rescan")}
           </button>
         }
       />
 
       <div className="p-6">
         {matches.isLoading ? (
-          <p className="text-sm text-[var(--color-muted)]">読み込み中…</p>
+          <p className="text-sm text-[var(--color-muted)]">{tc("action.loading")}</p>
         ) : matches.error ? (
           <div className="rounded-md border border-rose-500/40 bg-rose-500/5 p-4 text-sm text-rose-300">
-            <p>マッチ一覧の取得に失敗しました。</p>
+            <p>{t("matches.fetchFailed")}</p>
             <p className="text-xs mt-1 opacity-80">{errText(matches.error)}</p>
-            <p className="text-xs mt-2">
-              Gateway と suite_core が起動しているか確認してください。
-            </p>
+            <p className="text-xs mt-2">{t("matches.fetchHint")}</p>
           </div>
         ) : !matches.data?.matches.length ? (
-          <p className="text-sm text-[var(--color-muted)]">
-            マッチはまだありません。設定でリプレイ/録画フォルダを確認してください。
-          </p>
+          <p className="text-sm text-[var(--color-muted)]">{t("matches.noMatches")}</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {matches.data.matches.map((m) => (
@@ -137,7 +140,7 @@ export function MatchLibrary() {
         )}
         {refreshMut.error && (
           <p className="mt-3 text-xs text-rose-400">
-            再スキャン失敗: {errText(refreshMut.error)}
+            {t("matches.rescanFailed", { error: errText(refreshMut.error) })}
           </p>
         )}
       </div>

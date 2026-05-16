@@ -1,14 +1,8 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { useLogMonitor } from "../contexts/LogMonitorContext";
-
-const PHASE_LABEL: Record<string, string> = {
-  idle: "待機中",
-  lobby: "ロビー",
-  loading: "ロード中",
-  in_match: "マッチ中",
-  post_match: "マッチ終了",
-};
+import { useLangPath } from "../hooks/useLangPath";
 
 const PHASE_COLOR: Record<string, string> = {
   idle: "bg-slate-500",
@@ -19,10 +13,13 @@ const PHASE_COLOR: Record<string, string> = {
 };
 
 export function LogMonitorBanner({ compact = false }: { compact?: boolean }) {
+  const { t } = useTranslation("pages");
+  const { t: tc } = useTranslation();
+  const langPath = useLangPath();
   const { status, connection, lastSystemMessage } = useLogMonitor();
   if (!status) return null;
 
-  const phaseLabel = PHASE_LABEL[status.phase] ?? status.phase;
+  const phaseLabel = tc(`phase.${status.phase}`, { defaultValue: status.phase });
   const phaseColor = PHASE_COLOR[status.phase] ?? "bg-slate-500";
 
   return (
@@ -36,23 +33,23 @@ export function LogMonitorBanner({ compact = false }: { compact?: boolean }) {
           />
           <div className="min-w-0">
             <div className="text-sm font-medium">
-              ログ監視: {status.running ? "稼働中" : "停止中"}
+              {t("logMonitor.label")}: {status.running ? t("logMonitor.running") : t("logMonitor.stopped")}
               <span className="ml-2 text-xs text-[var(--color-muted)]">
-                フェーズ: {phaseLabel}
+                {t("logMonitor.phase")}: {phaseLabel}
               </span>
               <span className="ml-2 text-xs text-[var(--color-muted)]">
-                マッチ数: {status.matchCount}
+                {t("logMonitor.matchCount")}: {status.matchCount}
               </span>
             </div>
             {!compact && status.lastEvent && (
               <div className="text-xs text-[var(--color-muted)] mt-0.5 truncate">
-                最新: {status.lastEvent.icon} {status.lastEvent.label} (
+                {t("logMonitor.latest")}: {status.lastEvent.icon} {status.lastEvent.label} (
                 {status.lastEvent.detectedAt})
               </div>
             )}
             {lastSystemMessage && (
               <div className="text-xs text-[var(--color-accent)] mt-0.5 truncate">
-                自動処理: {lastSystemMessage}
+                {t("logMonitor.autoProcess")}: {lastSystemMessage}
               </div>
             )}
           </div>
@@ -72,10 +69,10 @@ export function LogMonitorBanner({ compact = false }: { compact?: boolean }) {
           </span>
           {compact && (
             <Link
-              to="/matches"
+              to={langPath("/matches")}
               className="rounded-md border border-[var(--color-border)] px-2.5 py-1 hover:border-[var(--color-accent)]"
             >
-              詳細 →
+              {t("logMonitor.details")}
             </Link>
           )}
         </div>

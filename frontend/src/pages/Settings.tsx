@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../components/PageHeader";
 import { ApiError } from "../lib/api";
@@ -9,10 +10,11 @@ const errText = (e: unknown) =>
   e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
 
 function SourceBadge({ source }: { source: SuiteConfig["obsRecordingDirSource"] }) {
+  const { t } = useTranslation();
   const label: Record<SuiteConfig["obsRecordingDirSource"], string> = {
-    obs_websocket: "OBS WebSocket",
-    config_file: "設定ファイル",
-    default: "既定値",
+    obs_websocket: t("obsSource.obs_websocket"),
+    config_file: t("obsSource.config_file"),
+    default: t("obsSource.default"),
   };
   const color: Record<SuiteConfig["obsRecordingDirSource"], string> = {
     obs_websocket: "bg-emerald-500/20 text-emerald-300",
@@ -27,6 +29,8 @@ function SourceBadge({ source }: { source: SuiteConfig["obsRecordingDirSource"] 
 }
 
 export function Settings() {
+  const { t } = useTranslation("pages");
+  const { t: tc } = useTranslation();
   const qc = useQueryClient();
   const cfg = useQuery({ queryKey: ["suite-config"], queryFn: suiteCoreApi.getConfig });
   const [draft, setDraft] = useState<SuiteConfig | null>(null);
@@ -62,12 +66,12 @@ export function Settings() {
   return (
     <div>
       <PageHeader
-        title="設定"
-        subtitle="~/.fortnite-suite/config.json に保存されます"
+        title={t("settings.title")}
+        subtitle={t("settings.subtitle")}
       />
       <div className="p-6 space-y-5 max-w-3xl">
         {cfg.isLoading && (
-          <p className="text-sm text-[var(--color-muted)]">読み込み中…</p>
+          <p className="text-sm text-[var(--color-muted)]">{tc("action.loading")}</p>
         )}
         {cfg.error && (
           <p className="text-sm text-rose-300">{errText(cfg.error)}</p>
@@ -75,22 +79,22 @@ export function Settings() {
         {draft && (
           <>
             <Field
-              label="Epic Player ID (epic_display_id)"
-              hint="リプレイ内の自分の PlayerId (UUID) と照合するのに使います。"
+              label={t("settings.fieldPlayerId")}
+              hint={t("settings.fieldPlayerIdHint")}
               value={draft.userPlayerId}
               onChange={onField("userPlayerId")}
             />
             <Field
-              label="リプレイフォルダ (demos_dir)"
-              hint="Fortnite の .replay 保存先。通常は %LOCALAPPDATA%\\FortniteGame\\Saved\\Demos"
+              label={t("settings.fieldReplaysDir")}
+              hint={t("settings.fieldReplaysDirHint")}
               value={draft.demosDir}
               onChange={onField("demosDir")}
             />
             <Field
-              label="OBS 録画フォルダ (obs_recording_dir)"
+              label={t("settings.fieldObsDir")}
               hint={
                 <span>
-                  OBS WebSocket 接続時は自動取得されます。現在の取得元:{" "}
+                  {t("settings.fieldObsDirHint")}{" "}
                   <SourceBadge source={draft.obsRecordingDirSource} />
                 </span>
               }
@@ -98,8 +102,8 @@ export function Settings() {
               onChange={onField("obsRecordingDir")}
             />
             <Field
-              label="Fortnite ログパス (log_path)"
-              hint="通常は %LOCALAPPDATA%\\FortniteGame\\Saved\\Logs\\FortniteGame.log"
+              label={t("settings.fieldLogPath")}
+              hint={t("settings.fieldLogPathHint")}
               value={draft.logPath}
               onChange={onField("logPath")}
             />
@@ -110,15 +114,15 @@ export function Settings() {
                 disabled={saveMut.isPending}
                 className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-xs text-white disabled:opacity-50"
               >
-                {saveMut.isPending ? "保存中…" : "保存"}
+                {saveMut.isPending ? tc("action.saving") : tc("action.save")}
               </button>
               {saveMut.error && (
                 <span className="text-xs text-rose-400">
-                  保存失敗: {errText(saveMut.error)}
+                  {t("settings.saveFailed", { error: errText(saveMut.error) })}
                 </span>
               )}
               {saveMut.isSuccess && !saveMut.isPending && (
-                <span className="text-xs text-emerald-400">保存しました。</span>
+                <span className="text-xs text-emerald-400">{tc("action.saved")}</span>
               )}
             </div>
           </>

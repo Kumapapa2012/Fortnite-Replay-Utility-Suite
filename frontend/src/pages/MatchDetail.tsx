@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../components/PageHeader";
 import { ApiError } from "../lib/api";
 import { suiteCoreApi } from "../lib/suiteCore";
 import { replayParserApi } from "../lib/replayParser";
 import { prepareUploadApi, type KillClipInfo } from "../lib/prepareUpload";
+import { useLangPath } from "../hooks/useLangPath";
+import { useLangNavigate } from "../hooks/useLangNavigate";
 
 function bytes(n: number): string {
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
@@ -47,7 +50,10 @@ const errText = (e: unknown) =>
 
 export function MatchDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const langPath = useLangPath();
+  const langNavigate = useLangNavigate();
+  const { t } = useTranslation("pages");
+  const { t: tc } = useTranslation();
   const qc = useQueryClient();
   const [manualVideoPath, setManualVideoPath] = useState("");
 
@@ -61,7 +67,7 @@ export function MatchDetail() {
     mutationFn: (path: string) => replayParserApi.parseFromDisk(path),
     onSuccess: (res) => {
       qc.setQueryData(["replay-session", res.sessionId], res);
-      navigate(`/replays/${res.sessionId}`);
+      langNavigate(`/replays/${res.sessionId}`);
     },
   });
 
@@ -117,27 +123,27 @@ export function MatchDetail() {
     enabled: false,
   });
 
-  if (!id) return <div className="p-6 text-sm">マッチ ID が不正です。</div>;
+  if (!id) return <div className="p-6 text-sm">{t("matchDetail.invalidId")}</div>;
 
   const m = match.data;
 
   return (
     <div>
       <PageHeader
-        title={`マッチ詳細: ${id}`}
-        subtitle={m ? new Date(m.matchStartedAt).toLocaleString() : "読み込み中…"}
+        title={t("matchDetail.title", { id })}
+        subtitle={m ? new Date(m.matchStartedAt).toLocaleString() : tc("action.loading")}
         actions={
           <Link
-            to="/matches"
+            to={langPath("/matches")}
             className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)]"
           >
-            ← マッチ一覧
+            {t("matchDetail.backToMatches")}
           </Link>
         }
       />
       <div className="p-6 space-y-5">
         {match.isLoading && (
-          <p className="text-sm text-[var(--color-muted)]">読み込み中…</p>
+          <p className="text-sm text-[var(--color-muted)]">{tc("action.loading")}</p>
         )}
         {match.error && (
           <p className="text-sm text-rose-300">{errText(match.error)}</p>
@@ -145,9 +151,9 @@ export function MatchDetail() {
 
         {m && (
           <>
-            {/* 処理状態 */}
+            {/* Processing status badges */}
             <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <h3 className="text-sm font-medium mb-3">処理状態</h3>
+              <h3 className="text-sm font-medium mb-3">{t("matchDetail.processingStatus")}</h3>
               <div className="flex flex-wrap gap-2">
                 <StatusBadge ok={true} label="Replay" />
                 <StatusBadge ok={m.hasVideo} label="Video" />
@@ -158,81 +164,87 @@ export function MatchDetail() {
             </section>
 
             <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-              <h3 className="text-sm font-medium mb-3">試合情報</h3>
+              <h3 className="text-sm font-medium mb-3">{t("matchDetail.matchInfo")}</h3>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-                <dt className="text-[var(--color-muted)]">開始</dt>
+                <dt className="text-[var(--color-muted)]">{t("matchDetail.started")}</dt>
                 <dd>{new Date(m.matchStartedAt).toLocaleString()}</dd>
                 {m.replaySummary && (
                   <>
-                    <dt className="text-[var(--color-muted)]">長さ</dt>
+                    <dt className="text-[var(--color-muted)]">{t("matchDetail.duration")}</dt>
                     <dd>{fmtDuration(m.replaySummary.matchLengthSec)}</dd>
-                    <dt className="text-[var(--color-muted)]">プレイヤー</dt>
+                    <dt className="text-[var(--color-muted)]">{t("matchDetail.playerCount")}</dt>
                     <dd>
-                      人間 {m.replaySummary.humanCount} / ボット {m.replaySummary.botCount}
+                      {t("matchDetail.playerCountValue", {
+                        human: m.replaySummary.humanCount,
+                        bot: m.replaySummary.botCount,
+                      })}
                     </dd>
                   </>
                 )}
                 {m.matchResult && (
                   <>
-                    <dt className="text-[var(--color-muted)]">結果</dt>
+                    <dt className="text-[var(--color-muted)]">{t("matchDetail.result")}</dt>
                     <dd className={m.matchResult === "win" ? "text-yellow-300 font-medium" : "text-slate-400"}>
-                      {m.matchResult === "win" ? "👑 Victory Royale" : "敗北"}
+                      {m.matchResult === "win" ? t("matchDetail.resultWin") : t("matchDetail.resultLoss")}
                     </dd>
                   </>
                 )}
                 {(m.killTimesInMatch ?? []).length > 0 && (
                   <>
-                    <dt className="text-[var(--color-muted)]">キル (試合内)</dt>
+                    <dt className="text-[var(--color-muted)]">{t("matchDetail.killsInMatch")}</dt>
                     <dd>
-                      {m.killTimesInMatch.length} 件 /{" "}
-                      {m.killTimesInMatch.map(fmtSec).join(", ")}
+                      {t("matchDetail.killsValue", {
+                        count: m.killTimesInMatch.length,
+                        times: m.killTimesInMatch.map(fmtSec).join(", "),
+                      })}
                     </dd>
                   </>
                 )}
               </dl>
             </section>
 
-            {/* 試合集計 (Summary) */}
+            {/* Match summary section */}
             <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">📊 試合集計</h3>
+                <h3 className="text-sm font-medium">{t("matchDetail.summary")}</h3>
                 {m.hasSummary && (
-                  <span className="text-xs text-emerald-400">✓ 集計済み</span>
+                  <span className="text-xs text-emerald-400">{t("matchDetail.summarized")}</span>
                 )}
               </div>
-              <p className="text-xs text-[var(--color-muted)]">
-                リプレイを解析してキルタイムと勝敗を記録します。
-              </p>
+              <p className="text-xs text-[var(--color-muted)]">{t("matchDetail.summaryDesc")}</p>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => summarizeMut.mutate(true)}
                   disabled={summarizeMut.isPending}
                   className="rounded-md bg-yellow-500/20 border border-yellow-500/40 px-3 py-1.5 text-xs text-yellow-300 hover:bg-yellow-500/30 disabled:opacity-40"
                 >
-                  {summarizeMut.isPending ? "集計中…" : "👑 勝利として集計"}
+                  {summarizeMut.isPending ? t("matchDetail.summarizing") : t("matchDetail.summarizeWin")}
                 </button>
                 <button
                   onClick={() => summarizeMut.mutate(false)}
                   disabled={summarizeMut.isPending}
                   className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)] disabled:opacity-40"
                 >
-                  {summarizeMut.isPending ? "集計中…" : "敗北として集計"}
+                  {summarizeMut.isPending ? t("matchDetail.summarizing") : t("matchDetail.summarizeLoss")}
                 </button>
               </div>
               {summarizeMut.isSuccess && summarizeMut.data && (
                 <p className="text-xs text-emerald-400">
-                  ✓ 集計完了 — {summarizeMut.data.matchResult === "win" ? "Victory Royale 👑" : "敗北"} /{" "}
-                  キル {summarizeMut.data.killCount} 件
+                  {summarizeMut.data.matchResult === "win"
+                    ? t("matchDetail.summarizeResultWin", { killCount: summarizeMut.data.killCount })
+                    : t("matchDetail.summarizeResultLoss", { killCount: summarizeMut.data.killCount })}
                 </p>
               )}
               {summarizeMut.error && (
-                <p className="text-xs text-rose-400">失敗: {errText(summarizeMut.error)}</p>
+                <p className="text-xs text-rose-400">
+                  {t("matchDetail.summarizeFailed", { error: errText(summarizeMut.error) })}
+                </p>
               )}
             </section>
 
             <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">📼 リプレイ</h3>
+                <h3 className="text-sm font-medium">{t("matchDetail.replay")}</h3>
                 {m.replay && (
                   <span className="text-xs text-[var(--color-muted)]">
                     {bytes(m.replay.sizeBytes)}
@@ -248,25 +260,23 @@ export function MatchDetail() {
                       disabled={openReplayMut.isPending}
                       className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs text-white disabled:opacity-50"
                     >
-                      {openReplayMut.isPending ? "解析中…" : "結果レポートを開く"}
+                      {openReplayMut.isPending ? tc("action.parsing") : t("matchDetail.openReport")}
                     </button>
                   </div>
                   {openReplayMut.error && (
                     <p className="text-xs text-rose-400">
-                      解析失敗: {errText(openReplayMut.error)}
+                      {t("matchDetail.parseFailed", { error: errText(openReplayMut.error) })}
                     </p>
                   )}
                 </>
               ) : (
-                <p className="text-xs text-[var(--color-muted)]">
-                  この試合のリプレイはありません。
-                </p>
+                <p className="text-xs text-[var(--color-muted)]">{t("matchDetail.noReplay")}</p>
               )}
             </section>
 
             <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">🎬 録画動画</h3>
+                <h3 className="text-sm font-medium">{t("matchDetail.video")}</h3>
                 {m.video && (
                   <span className="text-xs text-[var(--color-muted)]">
                     {fmtDuration(m.video.durationSec)} / {bytes(m.video.sizeBytes)}
@@ -282,42 +292,38 @@ export function MatchDetail() {
                     className="h-28 w-48 rounded bg-black/40 object-cover"
                   />
                   <Link
-                    to={`/videos?matchId=${encodeURIComponent(m.id)}`}
+                    to={langPath(`/videos?matchId=${encodeURIComponent(m.id)}`)}
                     className="inline-block rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)]"
                   >
-                    トリミング UI へ
+                    {t("matchDetail.toTrimUI")}
                   </Link>
                   <button
                     onClick={() => linkVideoMut.mutate(null)}
                     disabled={linkVideoMut.isPending}
                     className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-rose-400 disabled:opacity-50"
                   >
-                    リンク解除
+                    {t("matchDetail.unlinkVideo")}
                   </button>
                 </>
               ) : (
                 <div className="space-y-3">
-                  <p className="text-xs text-[var(--color-muted)]">
-                    この試合の録画動画がリンクされていません。
-                  </p>
-                  {/* 自動検出 */}
+                  <p className="text-xs text-[var(--color-muted)]">{t("matchDetail.noVideo")}</p>
+                  {/* Auto-detect video */}
                   <div className="flex flex-wrap gap-2 items-center">
                     <button
                       onClick={() => autoLinkMut.mutate()}
                       disabled={autoLinkMut.isPending}
                       className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs text-white disabled:opacity-50"
                     >
-                      {autoLinkMut.isPending ? "検索中…" : "自動検出"}
+                      {autoLinkMut.isPending ? t("matchDetail.detecting") : t("matchDetail.autoDetect")}
                     </button>
                     {autoLinkMut.isError && (
-                      <span className="text-xs text-amber-400">
-                        見つかりませんでした。手動でリンクしてください。
-                      </span>
+                      <span className="text-xs text-amber-400">{t("matchDetail.autoDetectFailed")}</span>
                     )}
                   </div>
-                  {/* 手動リンク */}
+                  {/* Manual link */}
                   <div className="space-y-2">
-                    <p className="text-xs text-[var(--color-muted)]">手動リンク</p>
+                    <p className="text-xs text-[var(--color-muted)]">{t("matchDetail.manualLink")}</p>
                     <div className="flex gap-2">
                       <select
                         className="flex-1 rounded-md border border-[var(--color-border)] bg-transparent px-2 py-1 text-xs"
@@ -325,7 +331,7 @@ export function MatchDetail() {
                         onChange={(e) => setManualVideoPath(e.target.value)}
                         onFocus={() => !videosQuery.data && videosQuery.refetch()}
                       >
-                        <option value="">— 動画を選択 —</option>
+                        <option value="">{t("matchDetail.selectVideo")}</option>
                         {videosQuery.data?.videos.map((v) => (
                           <option key={v.path} value={v.path}>
                             {v.filename} ({fmtDuration(v.durationSec)})
@@ -337,31 +343,33 @@ export function MatchDetail() {
                         disabled={!manualVideoPath || linkVideoMut.isPending}
                         className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)] disabled:opacity-40"
                       >
-                        リンク
+                        {t("matchDetail.link")}
                       </button>
                     </div>
                     {linkVideoMut.error && (
-                      <p className="text-xs text-rose-400">失敗: {errText(linkVideoMut.error)}</p>
+                      <p className="text-xs text-rose-400">
+                        {t("matchDetail.linkFailed", { error: errText(linkVideoMut.error) })}
+                      </p>
                     )}
                   </div>
                 </div>
               )}
             </section>
 
-            {/* Kill クリップ集 */}
+            {/* Kill compilation section */}
             {m.hasTrimmedVideo && (
               <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 space-y-4">
-                <h3 className="text-sm font-medium">💥 Kill クリップ集</h3>
+                <h3 className="text-sm font-medium">{t("matchDetail.killClips")}</h3>
 
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
                   <dt className="text-[var(--color-muted)]">Trimmed</dt>
                   <dd className="font-mono break-all">{m.trimmedVideoPath}</dd>
                 </dl>
 
-                {/* Step 1: Kill オフセット計算 */}
+                {/* Step 1: compute kill offsets */}
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-[var(--color-muted)]">
-                    Step 1 — 自プレイヤーの Kill オフセットを計算
+                    {t("matchDetail.killStep1")}
                   </p>
                   <div className="flex flex-wrap gap-2 items-center">
                     <button
@@ -369,32 +377,34 @@ export function MatchDetail() {
                       disabled={computeKillsMut.isPending}
                       className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)] disabled:opacity-40"
                     >
-                      {computeKillsMut.isPending ? "計算中…" : "Kill オフセットを計算"}
+                      {computeKillsMut.isPending ? t("matchDetail.computingKills") : t("matchDetail.computeKills")}
                     </button>
                     {m.killOffsetsInTrimmed.length > 0 && (
                       <span className="text-xs text-emerald-400">
-                        ✓ {m.killOffsetsInTrimmed.length} 件 /{" "}
+                        ✓ {m.killOffsetsInTrimmed.length} /{" "}
                         {m.killOffsetsInTrimmed.map(fmtSec).join(", ")}
                       </span>
                     )}
                   </div>
                   {computeKillsMut.isSuccess && (
                     <p className="text-xs text-emerald-400">
-                      ✓ {computeKillsMut.data?.userPlayerId} のキル{" "}
-                      {computeKillsMut.data?.killCount} 件を登録しました
+                      {t("matchDetail.killsRegistered", {
+                        playerId: computeKillsMut.data?.userPlayerId,
+                        count: computeKillsMut.data?.killCount,
+                      })}
                     </p>
                   )}
                   {computeKillsMut.error && (
                     <p className="text-xs text-rose-400">
-                      失敗: {errText(computeKillsMut.error)}
+                      {t("matchDetail.killsFailed", { error: errText(computeKillsMut.error) })}
                     </p>
                   )}
                 </div>
 
-                {/* Step 2: クリップ集生成 */}
+                {/* Step 2: generate kill compilation */}
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-[var(--color-muted)]">
-                    Step 2 — クリップ集を生成（各 Kill 前後 10 秒）
+                    {t("matchDetail.killStep2")}
                   </p>
                   <div className="flex flex-wrap gap-2 items-center">
                     <button
@@ -406,13 +416,13 @@ export function MatchDetail() {
                       className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs text-white disabled:opacity-40"
                     >
                       {killCompilationMut.isPending
-                        ? "生成中…"
+                        ? t("matchDetail.generatingKillClips")
                         : m.hasKillCompilation
-                        ? "再生成"
-                        : "Kill クリップ集を作成"}
+                        ? t("matchDetail.recreateKillClips")
+                        : t("matchDetail.createKillClips")}
                     </button>
                     {m.hasKillCompilation && (
-                      <span className="text-xs text-emerald-400">✓ 生成済み</span>
+                      <span className="text-xs text-emerald-400">{t("matchDetail.killClipsDoneLabel")}</span>
                     )}
                   </div>
                   {m.hasKillCompilation && m.killCompilationPath && (
@@ -423,15 +433,17 @@ export function MatchDetail() {
                   {killCompilationMut.isSuccess && killCompilationMut.data && (
                     <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs space-y-1">
                       <p className="text-emerald-300 font-medium">
-                        ✓ {killCompilationMut.data.clipCount} クリップ /{" "}
-                        {bytes(killCompilationMut.data.sizeBytes)}
+                        {t("matchDetail.killClipsDone", {
+                          count: killCompilationMut.data.clipCount,
+                          size: bytes(killCompilationMut.data.sizeBytes),
+                        })}
                       </p>
                       <p className="font-mono break-all text-[var(--color-muted)]">
                         {killCompilationMut.data.outputPath}
                       </p>
                       <details className="mt-1">
                         <summary className="cursor-pointer text-[var(--color-muted)] hover:text-[var(--color-text)]">
-                          クリップ詳細
+                          {t("matchDetail.killClipsDetail")}
                         </summary>
                         <ul className="mt-1 space-y-0.5 pl-2">
                           {killCompilationMut.data.clips.map((c: KillClipInfo, i: number) => (
@@ -446,7 +458,7 @@ export function MatchDetail() {
                   )}
                   {killCompilationMut.error && (
                     <p className="text-xs text-rose-400">
-                      失敗: {errText(killCompilationMut.error)}
+                      {t("matchDetail.killCompilationFailed", { error: errText(killCompilationMut.error) })}
                     </p>
                   )}
                 </div>

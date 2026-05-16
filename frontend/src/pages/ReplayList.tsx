@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../components/PageHeader";
 import { replayParserApi, type ReplayFileInfo } from "../lib/replayParser";
 import { ApiError } from "../lib/api";
+import { useLangNavigate } from "../hooks/useLangNavigate";
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -21,7 +22,9 @@ function formatDate(iso: string): string {
 }
 
 export function ReplayList() {
-  const navigate = useNavigate();
+  const { t } = useTranslation("pages");
+  const { t: tc } = useTranslation();
+  const langNavigate = useLangNavigate();
   const qc = useQueryClient();
   const [filter, setFilter] = useState("");
 
@@ -34,7 +37,7 @@ export function ReplayList() {
     mutationFn: (fullPath: string) => replayParserApi.parseFromDisk(fullPath),
     onSuccess: (res) => {
       qc.setQueryData(["replay-session", res.sessionId], res);
-      navigate(`/replays/${res.sessionId}`);
+      langNavigate(`/replays/${res.sessionId}`);
     },
   });
 
@@ -48,14 +51,14 @@ export function ReplayList() {
   return (
     <div>
       <PageHeader
-        title="リプレイ"
-        subtitle={data?.dir ? `ディレクトリ: ${data.dir}` : "リプレイファイル一覧"}
+        title={t("replays.title")}
+        subtitle={data?.dir ? t("replays.dir", { dir: data.dir }) : t("replays.subtitle")}
         actions={
           <button
             onClick={() => refetch()}
             className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)]"
           >
-            {isFetching ? "更新中…" : "再スキャン"}
+            {isFetching ? tc("action.refreshing") : tc("action.rescan")}
           </button>
         }
       />
@@ -63,39 +66,35 @@ export function ReplayList() {
       <div className="p-6 space-y-4">
         <input
           type="text"
-          placeholder="ファイル名で絞り込み"
+          placeholder={t("replays.filter")}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           className="w-full max-w-md rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm focus:border-[var(--color-accent)] focus:outline-none"
         />
 
         {isLoading ? (
-          <p className="text-sm text-[var(--color-muted)]">読み込み中…</p>
+          <p className="text-sm text-[var(--color-muted)]">{tc("action.loading")}</p>
         ) : error ? (
           <div className="rounded-md border border-rose-500/40 bg-rose-500/5 p-4 text-sm text-rose-300">
-            <p className="font-medium">リプレイ一覧の取得に失敗しました。</p>
+            <p className="font-medium">{t("replays.fetchFailed")}</p>
             <p className="text-xs mt-1 opacity-80">
               {error instanceof ApiError ? error.message : String(error)}
             </p>
-            <p className="text-xs mt-2">
-              Gateway と replay_parser が起動しているか確認してください。
-            </p>
+            <p className="text-xs mt-2">{t("replays.fetchHint")}</p>
           </div>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-[var(--color-muted)]">
-            {data?.replays?.length
-              ? "フィルタに一致するファイルがありません。"
-              : "リプレイファイルが見つかりませんでした。"}
+            {data?.replays?.length ? t("replays.noMatch") : t("replays.noFiles")}
           </p>
         ) : (
           <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
             <table className="w-full text-sm">
               <thead className="bg-[var(--color-surface)]">
                 <tr className="text-left text-xs text-[var(--color-muted)]">
-                  <th className="px-4 py-2 font-medium">ファイル名</th>
-                  <th className="px-4 py-2 font-medium">更新日時</th>
-                  <th className="px-4 py-2 font-medium text-right">サイズ</th>
-                  <th className="px-4 py-2 font-medium text-right">操作</th>
+                  <th className="px-4 py-2 font-medium">{t("replays.colName")}</th>
+                  <th className="px-4 py-2 font-medium">{t("replays.colDate")}</th>
+                  <th className="px-4 py-2 font-medium text-right">{t("replays.colSize")}</th>
+                  <th className="px-4 py-2 font-medium text-right">{t("replays.colAction")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -115,10 +114,9 @@ export function ReplayList() {
                         onClick={() => parseMutation.mutate(r.fullPath)}
                         className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
                       >
-                        {parseMutation.isPending &&
-                        parseMutation.variables === r.fullPath
-                          ? "解析中…"
-                          : "開く"}
+                        {parseMutation.isPending && parseMutation.variables === r.fullPath
+                          ? tc("action.parsing")
+                          : tc("action.open")}
                       </button>
                     </td>
                   </tr>
@@ -130,10 +128,11 @@ export function ReplayList() {
 
         {parseMutation.error ? (
           <div className="rounded-md border border-rose-500/40 bg-rose-500/5 p-3 text-xs text-rose-300">
-            解析失敗:{" "}
-            {parseMutation.error instanceof ApiError
-              ? parseMutation.error.message
-              : String(parseMutation.error)}
+            {t("replays.parseFailed", {
+              error: parseMutation.error instanceof ApiError
+                ? parseMutation.error.message
+                : String(parseMutation.error),
+            })}
           </div>
         ) : null}
       </div>

@@ -1,0 +1,38 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "matches": "Matches",
+    "replays": "Replays",
+    "videos": "Videos",
+    "logs": "Logs",
+    "settings": "Settings"
+  },
+  "action": {
+    "refresh": "Refresh",
+    "refreshing": "Refreshing…",
+    "rescan": "Rescan",
+    "scanning": "Scanning…",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved.",
+    "open": "Open",
+    "parsing": "Parsing…",
+    "loading": "Loading…"
+  },
+  "phase": {
+    "idle": "Idle",
+    "lobby": "Lobby",
+    "loading": "Loading",
+    "in_match": "In Match",
+    "post_match": "Match Ended"
+  },
+  "obsSource": {
+    "obs_websocket": "OBS WebSocket",
+    "config_file": "Config File",
+    "default": "Default"
+  },
+  "lang": {
+    "ja": "日本語",
+    "en": "English"
+  }
+}

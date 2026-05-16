@@ -1,0 +1,38 @@
+{
+  "nav": {
+    "dashboard": "ダッシュボード",
+    "matches": "マッチ",
+    "replays": "リプレイ",
+    "videos": "動画",
+    "logs": "ログ",
+    "settings": "設定"
+  },
+  "action": {
+    "refresh": "更新",
+    "refreshing": "更新中…",
+    "rescan": "再スキャン",
+    "scanning": "スキャン中…",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "保存しました。",
+    "open": "開く",
+    "parsing": "解析中…",
+    "loading": "読み込み中…"
+  },
+  "phase": {
+    "idle": "待機中",
+    "lobby": "ロビー",
+    "loading": "ロード中",
+    "in_match": "マッチ中",
+    "post_match": "マッチ終了"
+  },
+  "obsSource": {
+    "obs_websocket": "OBS WebSocket",
+    "config_file": "設定ファイル",
+    "default": "既定値"
+  },
+  "lang": {
+    "ja": "日本語",
+    "en": "English"
+  }
+}
