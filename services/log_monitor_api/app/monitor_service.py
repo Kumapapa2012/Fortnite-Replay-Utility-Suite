@@ -120,7 +120,7 @@ class LogMonitorService:
                     self._obs = obs
                     obs_connected = True
                 else:
-                    obs_error = f"OBS 接続失敗 ({host}:{port})"
+                    obs_error = f"OBS connection failed ({host}:{port})"
                 # 接続失敗時も OBSController インスタンスは保持しておく（watchdog が使う）
                 if self._obs is None:
                     self._obs = obs
@@ -235,11 +235,11 @@ class LogMonitorService:
         try:
             self._monitor.scan_existing()
         except Exception as e:  # non-fatal; continue into tail loop
-            self._push_system_event("scan_error", f"既存ログスキャン失敗: {e}")
+            self._push_system_event("scan_error", f"Existing log scan failed: {e}")
         try:
             self._monitor.watch(poll_interval=0.5)
         except Exception as e:
-            self._push_system_event("watch_error", f"監視ループ異常終了: {e}")
+            self._push_system_event("watch_error", f"Watch loop exited unexpectedly: {e}")
         finally:
             self._state.status.running = False
 
@@ -263,14 +263,14 @@ class LogMonitorService:
                 if not self._state.status.obs_connected:
                     self._state.status.obs_connected = True
                     self._state.status.obs_error = None
-                    self._push_system_event("obs_connected", "OBS 接続を確認")
+                    self._push_system_event("obs_connected", "OBS connection confirmed")
                     self._broadcast_state()
                 continue
 
             # 切断検知
             if self._state.status.obs_connected:
                 self._state.status.obs_connected = False
-                self._push_system_event("obs_reconnecting", "OBS 切断を検知。再接続を試みます...")
+                self._push_system_event("obs_reconnecting", "OBS disconnected. Attempting reconnect...")
                 self._broadcast_state()
                 log.warning("OBS disconnected, attempting reconnect")
 
@@ -281,11 +281,11 @@ class LogMonitorService:
                 # callbacks に OBS を紐付け直す
                 if self._callbacks is not None:
                     self._callbacks.obs = obs
-                self._push_system_event("obs_connected", "OBS に再接続しました")
+                self._push_system_event("obs_connected", "OBS reconnected")
                 self._broadcast_state()
                 log.info("OBS reconnected successfully")
             else:
-                self._state.status.obs_error = f"OBS 再接続失敗 ({obs.host}:{obs.port})"
+                self._state.status.obs_error = f"OBS reconnect failed ({obs.host}:{obs.port})"
                 log.debug("OBS reconnect failed, will retry in %ss", _OBS_WATCHDOG_INTERVAL)
 
     def _maybe_update_demos_dir(self, replay_dir: str) -> None:
@@ -300,7 +300,7 @@ class LogMonitorService:
                 return
             cfg.setdefault("replays", {})["dir"] = replay_dir
             global_config.save(cfg)
-            self._push_system_event("demos_dir_updated", f"demos_dir を自動設定: {replay_dir}")
+            self._push_system_event("demos_dir_updated", f"demos_dir auto-set: {replay_dir}")
             log.info("demos_dir auto-set to %s", replay_dir)
         except Exception as e:
             log.warning("demos_dir auto-update failed: %s", e)
@@ -359,14 +359,14 @@ class LogMonitorService:
         # Wait for OBS to finish writing the replay buffer file to disk.
         await asyncio.sleep(5.0)
 
-        self._push_system_event("post_match_step", "自動処理開始...")
+        self._push_system_event("post_match_step", "Post-match automation started...")
 
         _PREPARE_UPLOAD_BASE = f"http://127.0.0.1:{SERVICE_PORTS['prepare_upload_api']}"
         JST = timezone(timedelta(hours=9))
 
         try:
             # ── Step 1: Refresh suite_core match cache ────────────────────────
-            self._push_system_event("post_match_step", "マッチリスト更新中...")
+            self._push_system_event("post_match_step", "Refreshing match list...")
             try:
                 async with httpx.AsyncClient(timeout=30.0) as c:
                     await c.post(f"{_SUITE_CORE_BASE}/api/matches/refresh")
@@ -377,12 +377,12 @@ class LogMonitorService:
             async with httpx.AsyncClient(timeout=30.0) as c:
                 r = await c.get(f"{_SUITE_CORE_BASE}/api/matches?limit=1")
             if r.status_code != 200:
-                self._push_system_event("post_match_error", f"マッチ取得失敗: HTTP {r.status_code}")
+                self._push_system_event("post_match_error", f"Failed to fetch match: HTTP {r.status_code}")
                 return
 
             matches = r.json().get("matches", [])
             if not matches:
-                self._push_system_event("post_match_error", "マッチが見つかりません")
+                self._push_system_event("post_match_error", "No match found")
                 return
 
             latest = matches[0]
@@ -390,20 +390,20 @@ class LogMonitorService:
             has_video: bool = bool(latest.get("has_video"))
 
             # ── Step 3: Summarize (replay → kill times + win/loss) ────────────
-            self._push_system_event("post_match_step", f"リプレイ解析中... ({match_id})")
+            self._push_system_event("post_match_step", f"Analyzing replay... ({match_id})")
             async with httpx.AsyncClient(timeout=120.0) as c:
                 r = await c.post(
                     f"{_SUITE_CORE_BASE}/api/matches/{match_id}/summarize",
                     json={"hasWon": has_won},
                 )
-            result_label = "Victory Royale" if has_won else "敗北"
+            result_label = "Victory Royale" if has_won else "Defeat"
             kills = 0
             if r.status_code == 200:
                 d = r.json()
                 kills = d.get("killCount", 0)
                 mr = d.get("matchResult")
                 if mr:
-                    result_label = "Victory Royale" if mr == "win" else "敗北"
+                    result_label = "Victory Royale" if mr == "win" else "Defeat"
                 log.info("summarize: %s result=%s kills=%d", match_id, mr, kills)
             else:
                 log.warning("summarize failed: %s %s", r.status_code, r.text[:200])
@@ -433,7 +433,7 @@ class LogMonitorService:
                         if 0.0 <= offset < float(vduration):
                             self._push_system_event(
                                 "post_match_step",
-                                f"動画トリミング中... (開始 {offset:.0f}s / 全体 {vduration:.0f}s)",
+                                f"Trimming video... (start {offset:.0f}s / total {vduration:.0f}s)",
                             )
                             # Store trimmed video in _trimmed/ subdirectory to
                             # exclude it from suite_core's iterdir() video scan.
@@ -456,20 +456,20 @@ class LogMonitorService:
                             else:
                                 log.warning("trim failed: %s %s", r.status_code, r.text[:300])
                                 self._push_system_event(
-                                    "post_match_error", f"トリム失敗: HTTP {r.status_code}"
+                                    "post_match_error", f"Trim failed: HTTP {r.status_code}"
                                 )
                         else:
                             log.warning("trim offset out of range: %.1f / %.1f", offset, vduration)
                             self._push_system_event(
-                                "post_match_error", f"トリムオフセット異常: {offset:.1f}s"
+                                "post_match_error", f"Trim offset out of range: {offset:.1f}s"
                             )
                     except Exception as e:
                         log.warning("trim error: %s", e)
-                        self._push_system_event("post_match_error", f"トリムエラー: {e}")
+                        self._push_system_event("post_match_error", f"Trim error: {e}")
 
             # ── Step 5: Record trim info in sidecar ───────────────────────────
             if trimmed_path is not None and trim_start_sec is not None:
-                self._push_system_event("post_match_step", "トリム情報を保存中...")
+                self._push_system_event("post_match_step", "Saving trim info...")
                 try:
                     async with httpx.AsyncClient(timeout=30.0) as c:
                         await c.patch(
@@ -483,7 +483,7 @@ class LogMonitorService:
                     log.warning("state patch error: %s", e)
 
                 # ── Step 6: Map kill times → video offsets ────────────────────
-                self._push_system_event("post_match_step", "キル位置を動画にマッピング中...")
+                self._push_system_event("post_match_step", "Mapping kill positions to video...")
                 try:
                     async with httpx.AsyncClient(timeout=180.0) as c:
                         r = await c.post(
@@ -499,14 +499,14 @@ class LogMonitorService:
 
             # ── Final event ───────────────────────────────────────────────────
             if not has_video:
-                trim_note = " / 動画なし"
+                trim_note = " / no video"
             elif trimmed_path:
-                trim_note = " / トリム完了"
+                trim_note = " / trim done"
             else:
-                trim_note = " / トリム失敗"
+                trim_note = " / trim failed"
             self._push_system_event(
                 "post_match_automation",
-                f"自動処理完了: {result_label} / {kills} kills{trim_note} ({match_id})",
+                f"Post-match done: {result_label} / {kills} kills{trim_note} ({match_id})",
             )
             log.info(
                 "post_match_automation done: %s result=%s kills=%d trimmed=%s",
@@ -515,7 +515,7 @@ class LogMonitorService:
 
         except Exception as e:
             log.warning("post_match_automation error: %s", e)
-            self._push_system_event("post_match_error", f"自動処理エラー: {type(e).__name__}: {e}")
+            self._push_system_event("post_match_error", f"Post-match error: {type(e).__name__}: {e}")
 
     # ---- broadcast helpers ----
 
