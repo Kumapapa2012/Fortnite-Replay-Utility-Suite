@@ -182,10 +182,10 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A["1. ダッシュボードで<br/>「監視開始」"] --> B["2. log_monitor_api が<br/>FortniteGame.log を tail"]
+    A["1. サービス起動と同時に<br/>監視ループ自動開始"] --> B["2. log_monitor_api が<br/>FortniteGame.log を tail"]
     B --> C["3. 試合フェーズ検知<br/>(14 パターン)"]
     C --> D["4. SSE で UI に push"]
-    C --> E["5. OBS WebSocket で<br/>録画 Start/Stop"]
+    C --> E["5. OBS WebSocket で<br/>リプレイバッファ保存"]
     D --> F["6. UI でリアルタイム<br/>バナー / ログ表示"]
 ```
 
@@ -199,6 +199,22 @@ flowchart LR
     D --> E["5. dist/ にトリム済み<br/>mp4 を出力"]
     E --> F["6. UI からダウンロード"]
 ```
+
+#### UC-4. ポストマッチ自動処理（ロビー復帰後に全自動）
+
+```mermaid
+flowchart LR
+    A["1. 試合終了 → ロビー復帰<br/>(matchmaking_start 検知)"] --> B["2. OBS リプレイバッファ<br/>を 10 秒後に保存"]
+    B --> C["3. suite_core キャッシュ<br/>リフレッシュ"]
+    C --> D["4. 最新マッチのリプレイを<br/>解析: kill タイム・勝敗"]
+    D --> E["5. 動画をトリミング<br/>(マッチ開始オフセット計算)"]
+    E --> F["6. kill 位置を動画に<br/>マッピング"]
+    F --> G["7. SSE で UI に進捗通知<br/>(バナー + LogStream)"]
+```
+
+- すべてのステップが**フロント操作なし**で自動実行される
+- 各ステップの進捗・エラーは SSE `type: system` イベントで `LogMonitorBanner` とログ画面に表示
+- トリム済み動画は `{録画フォルダ}/_trimmed/` サブディレクトリに保存（suite_core のスキャン対象外）
 
 ---
 
@@ -217,6 +233,8 @@ flowchart LR
 | D-07 | **Match Library（横断機能）** | OBS 録画動画と `.replay` をタイムスタンプでペアリングし「試合」として一覧 | [03 §6](./03_api_specification.md) |
 | D-08 | **グローバル player config** | 既存の `user_params.json`（プレイヤー名）を `~/.fortnite-suite/config.json` に昇格 | [07 §4](./07_project_structure.md) |
 | D-09 | **ReplayToJson 重複の解消** | `Fortnite_replay_map_project/ReplayToJson.exe` の機能を `replay_parser` に JSON エクスポート endpoint として統合し、独立 exe は廃止 | [02 §6](./02_existing_apps_analysis.md) / [03 §2](./03_api_specification.md) |
+| D-10 | **ポストマッチ自動処理** | ロビー復帰 + OBS リプレイバッファ保存を契機に、リプレイ解析・動画トリミング・キルオフセット計算を log_monitor_api が全自動で実行。orchestration を monitor_service に集約し、SSE で進捗を配信 | [03 §5.8](./03_api_specification.md) |
+| D-11 | **ログ監視の自動起動 + OBS Watchdog** | log_monitor_api は uvicorn 起動と同時に監視ループを自動開始する（フロント操作不要）。OBS の死活は専用 Watchdog スレッドが 10 秒ごとに確認し、切断時は自動再接続する | [03 §5.7](./03_api_specification.md) |
 
 ---
 
