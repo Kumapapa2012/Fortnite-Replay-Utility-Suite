@@ -33,6 +33,8 @@
           <li><a href="#overview"><span class="sn">—</span>概要</a></li>
           <li><a href="#matches-list"><span class="sn">1</span>マッチ一覧</a></li>
           <li><a href="#match-detail"><span class="sn">2</span>マッチ詳細</a></li>
+          <li><a href="#post-match"><span class="sn">2a</span>試合終了後の自動処理</a></li>
+          <li><a href="#kill-clip"><span class="sn">2b</span>Kill クリップ集</a></li>
           <li><a href="#replays-list"><span class="sn">3</span>リプレイ一覧</a></li>
           <li><a href="#replay-detail"><span class="sn">4</span>リプレイ詳細</a></li>
           <li><a href="#replay-map"><span class="sn">5</span>移動軌跡マップ</a></li>
@@ -223,6 +225,14 @@
 
         <p>各ステップの進捗はダッシュボードのバナーとマッチ詳細の「処理状態」セクションにリアルタイムで表示されます。</p>
 
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">自動処理後のバッジ状態</span>
+            <p>自動処理が正常に完了すると、<strong>Summary</strong>・<strong>Video</strong>・<strong>Trimmed</strong> バッジが緑になります。<strong>Kill Clip</strong> バッジは Kill クリップ集を別途生成するまで緑になりません。自動処理の詳細なフローと SSE イベントについては <a href="./06_logs.html#system-events">ログ監視 §4 — システムイベント</a> を参照してください。</p>
+          </div>
+        </div>
+
         <div class="callout callout-warn">
           <span class="callout-icon">⚠️</span>
           <div class="callout-body">
@@ -230,6 +240,65 @@
             <p>OBS がリプレイバッファを保存するまでに時間がかかる場合、自動リンクが失敗することがあります。その際はマッチ詳細の「自動検出」または「手動リンク」で後から動画を紐付けてください。</p>
           </div>
         </div>
+      </section>
+
+      <section id="kill-clip">
+        <h2><span class="h2-num">2b</span>Kill クリップ集</h2>
+        <p>試合中に発生したキルシーンを録画動画から切り出して 1 本に連結した mp4 ファイルを作成する機能です。マッチ詳細の「💥 Kill クリップ集」セクションから 2 ステップで操作します。</p>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">前提条件</span>
+            <p>以下がすべて揃っていないと操作できません。</p>
+            <ul style="margin:6px 0 0; padding-left:20px; line-height:1.8;">
+              <li><strong>Trimmed</strong> バッジが緑（動画がリンク済みかつトリミング済み）</li>
+              <li>設定ページで <strong>Epic Display ID</strong> が登録済み（自プレイヤーのキルを識別するために使用）</li>
+              <li>ffmpeg / ffprobe が PATH に存在</li>
+            </ul>
+          </div>
+        </div>
+
+        <ol class="steps">
+          <li>
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <strong>Kill オフセットを計算</strong>
+              <p>「Kill オフセットを計算」ボタンをクリックすると、リプレイ解析結果と録画動画を突き合わせて自プレイヤーのキル時刻を検出し、トリミング動画内の秒数に変換します。成功すると「✓ N 件を登録しました」と表示されます。</p>
+            </div>
+          </li>
+          <li>
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <strong>Kill クリップ集を作成</strong>
+              <p>「Kill クリップ集を作成」ボタンをクリックすると、各キルの前後 10 秒をキーフレーム境界にスナップして切り出し、全クリップを 1 本に連結します。ffmpeg の Stream copy モードで処理するため再エンコードは行わず高速です。完了すると <code>Kill Clip</code> バッジが緑になります。</p>
+            </div>
+          </li>
+        </ol>
+
+        <table>
+          <thead>
+            <tr><th>項目</th><th>詳細</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>各キルの切り出し範囲</td>
+              <td>キル前後 各 10 秒（キーフレーム境界にスナップするため実際の開始位置は数フレーム前になる場合あり）</td>
+            </tr>
+            <tr>
+              <td>出力ファイル名</td>
+              <td><code>{トリミング動画ファイル名}_kills.mp4</code></td>
+            </tr>
+            <tr>
+              <td>保存先</td>
+              <td>OBS 録画フォルダ（トリミング動画と同じ場所）</td>
+            </tr>
+            <tr>
+              <td>コーデック</td>
+              <td>元動画と同一（Stream copy、再エンコードなし）</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <section id="replays-list">

@@ -107,11 +107,11 @@
 
       <section id="events">
         <h2><span class="h2-num">3</span>ゲームイベント一覧</h2>
-        <p>イベントは Fortnite の試合フローに沿って順に発火します。<code>extra</code> 列が「あり」のイベントは、SSE の <code>data.extra</code> フィールドに追加情報が含まれます。</p>
+        <p>イベントは Fortnite の試合フローに沿って順に発火します。</p>
 
         <table>
           <thead>
-            <tr><th>イベント ID</th><th>アイコン</th><th>意味</th><th>フェーズ</th><th>extra</th></tr>
+            <tr><th>イベント ID</th><th>アイコン</th><th>意味</th><th>フェーズ</th></tr>
           </thead>
           <tbody>
             <tr>
@@ -119,119 +119,102 @@
               <td>🚀</td>
               <td>Fortnite 起動</td>
               <td>launch</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>lobby_enter</code></td>
               <td>🏠</td>
               <td>ロビーに入った</td>
               <td>lobby</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>matchmaking_start</code></td>
               <td>🔍</td>
               <td>マッチメイキング開始</td>
               <td>matchmaking</td>
-              <td>プレイリスト名（例: <code>playlist: solo</code>）</td>
             </tr>
             <tr>
               <td><code>session_found</code></td>
               <td>🎯</td>
               <td>サーバー発見</td>
               <td>connecting</td>
-              <td>セッション ID 先頭 12 文字</td>
             </tr>
             <tr>
               <td><code>map_loaded</code></td>
               <td>🗺️</td>
               <td>マップロード完了</td>
               <td>loading</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>phase_warmup</code></td>
               <td>⏳</td>
               <td>ウォームアップ開始</td>
               <td>warmup</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>phase_aircraft</code></td>
               <td>🚌</td>
               <td>バトルバス搭乗</td>
               <td>aircraft</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>bus_flying</code></td>
               <td>✈️</td>
               <td>バス発車</td>
               <td>flying</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>phase_safezones</code></td>
               <td>⚔️</td>
               <td>試合開始（降下可能）</td>
               <td>ingame</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>storm_forming</code></td>
               <td>🌀</td>
               <td>ストーム収縮開始</td>
               <td>ingame</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>storm_holding</code></td>
               <td>🌀</td>
               <td>ストーム停止</td>
               <td>ingame</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>player_kill</code></td>
               <td>💥</td>
               <td>キル</td>
               <td>ingame</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>player_death</code></td>
               <td>💀</td>
               <td>死亡</td>
               <td>ingame</td>
-              <td>キルしたプレイヤー名</td>
             </tr>
             <tr>
               <td><code>victory_royale</code></td>
               <td>👑</td>
               <td>Victory Royale！</td>
               <td>post_match</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>match_end</code></td>
               <td>🏁</td>
               <td>試合終了</td>
               <td>post_match</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>return_lobby</code></td>
               <td>🔙</td>
               <td>ロビーに戻った</td>
               <td>lobby</td>
-              <td>—</td>
             </tr>
             <tr>
               <td><code>game_exit</code></td>
               <td>⏹️</td>
               <td>Fortnite 終了</td>
               <td>exit</td>
-              <td>—</td>
             </tr>
           </tbody>
         </table>
@@ -249,27 +232,80 @@
         <h2><span class="h2-num">4</span>システムイベント</h2>
         <p>ゲームイベントとは別に、試合終了後の自動処理や OBS Watchdog の状態変化も SSE で配信されます。ログ監視ページとダッシュボードのバナーに表示されます。</p>
 
+        <h3 style="margin-top:28px; font-size:18px;">ポスト試合自動処理</h3>
+        <p>試合終了（<code>return_lobby</code> イベント）を検出すると、OBS がリプレイバッファを保存する時間を確保するため 10 秒待機したのち、以下のフローで自動処理が実行されます。</p>
+
+        <table>
+          <thead>
+            <tr><th>ステップ</th><th>処理内容</th><th>実行条件</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>トリガー</td>
+              <td><code>return_lobby</code> 検出 → 10 秒待機</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>1</td>
+              <td>マッチ情報更新 / 最新マッチ取得</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td>リプレイ解析（Summarize）＋ 動画の自動リンク</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td>動画トリミング</td>
+              <td>動画リンク成功時（<code>has_video = true</code>）のみ</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>トリミング結果保存 ＋ キルオフセット計算</td>
+              <td>トリミング成功時のみ</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p style="margin-top:20px;">各ステップは以下の SSE イベント ID でリアルタイムに通知されます。</p>
+
+        <table>
+          <thead>
+            <tr><th>イベント ID</th><th>タイミング</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>post_match_started</code></td><td>自動処理 開始</td></tr>
+            <tr><td><code>post_match_analyzing</code></td><td>リプレイ解析・動画リンク 処理中</td></tr>
+            <tr><td><code>post_match_trimming</code></td><td>動画トリミング 開始</td></tr>
+            <tr><td><code>post_match_saving_trim</code></td><td>トリミング結果 保存中</td></tr>
+            <tr><td><code>post_match_mapping_kills</code></td><td>キルオフセット計算 処理中</td></tr>
+            <tr><td><code>post_match_automation</code></td><td>自動処理 完了（<code>result</code> / <code>kills</code> / <code>trim</code> / <code>matchId</code> パラメータ付き）</td></tr>
+            <tr><td><code>post_match_fetch_error</code></td><td>マッチ取得 失敗</td></tr>
+            <tr><td><code>post_match_no_match</code></td><td>対象マッチが見つからない</td></tr>
+            <tr><td><code>post_match_trim_error</code></td><td>トリミング処理 エラー</td></tr>
+            <tr><td><code>post_match_trim_http_error</code></td><td>トリミング HTTP エラー</td></tr>
+            <tr><td><code>post_match_trim_offset_error</code></td><td>オフセット計算 エラー</td></tr>
+            <tr><td><code>post_match_error</code></td><td>その他のエラー</td></tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">最終イベントのパラメータ</span>
+            <p><code>post_match_automation</code> には結果パラメータが付きます。<code>trim</code> の値は <code>trim_done</code>（成功）・<code>trim_failed</code>（失敗）・<code>no_video</code>（動画なし）のいずれかです。</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:32px; font-size:18px;">OBS Watchdog</h3>
+        <p>OBS 接続状態の変化も SSE イベントとして配信されます。</p>
+
         <table>
           <thead>
             <tr><th>システムイベントの内容</th><th>発火タイミング</th></tr>
           </thead>
           <tbody>
-            <tr>
-              <td>ポスト試合自動処理 開始</td>
-              <td>OBS リプレイバッファ保存完了後</td>
-            </tr>
-            <tr>
-              <td>リプレイ解析 完了 / 失敗</td>
-              <td>replay_parser によるパース終了時</td>
-            </tr>
-            <tr>
-              <td>動画の自動リンク 成功 / 失敗</td>
-              <td>録画フォルダのスキャン完了時</td>
-            </tr>
-            <tr>
-              <td>キルオフセット計算 完了 / 失敗</td>
-              <td>動画リンク成功後のオフセット計算終了時</td>
-            </tr>
             <tr>
               <td>OBS 接続 / 切断</td>
               <td>OBS Watchdog による 10 秒ごとのハートビートで接続状態が変化したとき</td>
