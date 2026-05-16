@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { useLogMonitor } from "../contexts/LogMonitorContext";
 import { useLangPath } from "../hooks/useLangPath";
+import { formatSystemEvent } from "../lib/logMonitor";
 
 const PHASE_COLOR: Record<string, string> = {
   idle: "bg-slate-500",
@@ -16,7 +17,7 @@ export function LogMonitorBanner({ compact = false }: { compact?: boolean }) {
   const { t } = useTranslation("pages");
   const { t: tc } = useTranslation();
   const langPath = useLangPath();
-  const { status, connection, lastSystemMessage } = useLogMonitor();
+  const { status, connection, lastSystemEvent } = useLogMonitor();
   if (!status) return null;
 
   const phaseLabel = tc(`phase.${status.phase}`, { defaultValue: status.phase });
@@ -47,9 +48,9 @@ export function LogMonitorBanner({ compact = false }: { compact?: boolean }) {
                 {status.lastEvent.detectedAt})
               </div>
             )}
-            {lastSystemMessage && (
+            {lastSystemEvent && (
               <div className="text-xs text-[var(--color-accent)] mt-0.5 truncate">
-                {t("logMonitor.autoProcess")}: {lastSystemMessage}
+                {t("logMonitor.autoProcess")}: {formatSystemEvent(lastSystemEvent, t)}
               </div>
             )}
           </div>

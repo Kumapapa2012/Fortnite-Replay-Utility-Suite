@@ -194,6 +194,35 @@
     "done": "完了しました。",
     "backToMatchDetail": "← マッチ詳細に戻る"
   },
+  "systemEvent": {
+    "post_match_started": "自動処理を開始中...",
+    "post_match_refresh": "マッチリストを更新中...",
+    "post_match_analyzing": "リプレイ解析中... ({{matchId}})",
+    "post_match_trimming": "動画トリミング中... (開始 {{offset}}s / 全体 {{total}}s)",
+    "post_match_saving_trim": "トリム情報を保存中...",
+    "post_match_mapping_kills": "キル位置を動画にマッピング中...",
+    "post_match_automation": "自動処理完了: {{result}} / {{kills}} kills / {{trim}} ({{matchId}})",
+    "post_match_fetch_error": "マッチ取得失敗: HTTP {{code}}",
+    "post_match_no_match": "マッチが見つかりません",
+    "post_match_trim_http_error": "トリム失敗: HTTP {{code}}",
+    "post_match_trim_offset_error": "トリムオフセット異常: {{offset}}s",
+    "post_match_trim_error": "トリムエラー: {{error}}",
+    "post_match_error": "自動処理エラー: {{error}}",
+    "obs_connected": "OBS 接続を確認",
+    "obs_reconnecting": "OBS 切断を検知。再接続を試みます...",
+    "scan_error": "既存ログスキャン失敗: {{error}}",
+    "watch_error": "監視ループ異常終了: {{error}}",
+    "demos_dir_updated": "demos_dir を自動設定: {{dir}}",
+    "result": {
+      "win": "Victory Royale",
+      "loss": "敗北"
+    },
+    "trim": {
+      "no_video": "動画なし",
+      "trim_done": "トリム完了",
+      "trim_failed": "トリム失敗"
+    }
+  },
   "settings": {
     "title": "設定",
     "subtitle": "~/.fortnite-suite/config.json に保存されます",

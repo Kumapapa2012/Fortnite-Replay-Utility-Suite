@@ -40,6 +40,21 @@ export interface SystemEvent {
   kind: string;
   message: string;
   detectedAt: string;
+  params?: Record<string, unknown>;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TFunc = (...args: any[]) => string;
+
+/** Format a system event using i18n. Falls back to raw `message` if no key found. */
+export function formatSystemEvent(ev: SystemEvent, t: TFunc): string {
+  const { kind, params, message } = ev;
+  if (kind === "post_match_automation" && params) {
+    const result = t(`systemEvent.result.${params.result}`, { defaultValue: String(params.result ?? "") });
+    const trim   = t(`systemEvent.trim.${params.trim}`,   { defaultValue: String(params.trim   ?? "") });
+    return t(`systemEvent.${kind}`, { ...params, result, trim, defaultValue: message });
+  }
+  return t(`systemEvent.${kind}`, { ...(params ?? {}), defaultValue: message });
 }
 
 export type StreamedEvent = MonitorEvent | SystemEvent;

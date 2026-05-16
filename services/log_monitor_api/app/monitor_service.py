@@ -235,11 +235,11 @@ class LogMonitorService:
         try:
             self._monitor.scan_existing()
         except Exception as e:  # non-fatal; continue into tail loop
-            self._push_system_event("scan_error", f"既存ログスキャン失敗: {e}")
+            self._push_system_event("scan_error", f"既存ログスキャン失敗: {e}", params={"error": str(e)})
         try:
             self._monitor.watch(poll_interval=0.5)
         except Exception as e:
-            self._push_system_event("watch_error", f"監視ループ異常終了: {e}")
+            self._push_system_event("watch_error", f"監視ループ異常終了: {e}", params={"error": str(e)})
         finally:
             self._state.status.running = False
 
@@ -300,7 +300,7 @@ class LogMonitorService:
                 return
             cfg.setdefault("replays", {})["dir"] = replay_dir
             global_config.save(cfg)
-            self._push_system_event("demos_dir_updated", f"demos_dir を自動設定: {replay_dir}")
+            self._push_system_event("demos_dir_updated", f"demos_dir を自動設定: {replay_dir}", params={"dir": replay_dir})
             log.info("demos_dir auto-set to %s", replay_dir)
         except Exception as e:
             log.warning("demos_dir auto-update failed: %s", e)
@@ -322,8 +322,10 @@ class LogMonitorService:
             self._state.recent_events = self._state.recent_events[-RING_BUFFER_SIZE:]
         self._broadcast(payload)
 
-    def _push_system_event(self, kind: str, message: str) -> None:
-        payload = {"type": "system", "kind": kind, "message": message, "detected_at": time.strftime("%H:%M:%S")}
+    def _push_system_event(self, kind: str, message: str, params: dict | None = None) -> None:
+        payload: dict = {"type": "system", "kind": kind, "message": message, "detected_at": time.strftime("%H:%M:%S")}
+        if params:
+            payload["params"] = params
         self._state.recent_events.append(payload)
         self._broadcast(payload)
 
@@ -359,14 +361,14 @@ class LogMonitorService:
         # Wait for OBS to finish writing the replay buffer file to disk.
         await asyncio.sleep(5.0)
 
-        self._push_system_event("post_match_step", "自動処理開始...")
+        self._push_system_event("post_match_started", "自動処理開始...")
 
         _PREPARE_UPLOAD_BASE = f"http://127.0.0.1:{SERVICE_PORTS['prepare_upload_api']}"
         JST = timezone(timedelta(hours=9))
 
         try:
             # ── Step 1: Refresh suite_core match cache ────────────────────────
-            self._push_system_event("post_match_step", "マッチリスト更新中...")
+            self._push_system_event("post_match_refresh", "マッチリスト更新中...")
             try:
                 async with httpx.AsyncClient(timeout=30.0) as c:
                     await c.post(f"{_SUITE_CORE_BASE}/api/matches/refresh")
@@ -377,12 +379,12 @@ class LogMonitorService:
             async with httpx.AsyncClient(timeout=30.0) as c:
                 r = await c.get(f"{_SUITE_CORE_BASE}/api/matches?limit=1")
             if r.status_code != 200:
-                self._push_system_event("post_match_error", f"マッチ取得失敗: HTTP {r.status_code}")
+                self._push_system_event("post_match_fetch_error", f"マッチ取得失敗: HTTP {r.status_code}", params={"code": r.status_code})
                 return
 
             matches = r.json().get("matches", [])
             if not matches:
-                self._push_system_event("post_match_error", "マッチが見つかりません")
+                self._push_system_event("post_match_no_match", "マッチが見つかりません")
                 return
 
             latest = matches[0]
@@ -390,12 +392,13 @@ class LogMonitorService:
             has_video: bool = bool(latest.get("has_video"))
 
             # ── Step 3: Summarize (replay → kill times + win/loss) ────────────
-            self._push_system_event("post_match_step", f"リプレイ解析中... ({match_id})")
+            self._push_system_event("post_match_analyzing", f"リプレイ解析中... ({match_id})", params={"matchId": match_id})
             async with httpx.AsyncClient(timeout=120.0) as c:
                 r = await c.post(
                     f"{_SUITE_CORE_BASE}/api/matches/{match_id}/summarize",
                     json={"hasWon": has_won},
                 )
+            result_key = "win" if has_won else "loss"
             result_label = "Victory Royale" if has_won else "敗北"
             kills = 0
             if r.status_code == 200:
@@ -403,6 +406,7 @@ class LogMonitorService:
                 kills = d.get("killCount", 0)
                 mr = d.get("matchResult")
                 if mr:
+                    result_key = mr if mr in ("win", "loss") else ("win" if mr == "win" else "loss")
                     result_label = "Victory Royale" if mr == "win" else "敗北"
                 log.info("summarize: %s result=%s kills=%d", match_id, mr, kills)
             else:
@@ -432,8 +436,9 @@ class LogMonitorService:
 
                         if 0.0 <= offset < float(vduration):
                             self._push_system_event(
-                                "post_match_step",
+                                "post_match_trimming",
                                 f"動画トリミング中... (開始 {offset:.0f}s / 全体 {vduration:.0f}s)",
+                                params={"offset": round(offset), "total": round(float(vduration))},
                             )
                             # Store trimmed video in _trimmed/ subdirectory to
                             # exclude it from suite_core's iterdir() video scan.
@@ -456,20 +461,22 @@ class LogMonitorService:
                             else:
                                 log.warning("trim failed: %s %s", r.status_code, r.text[:300])
                                 self._push_system_event(
-                                    "post_match_error", f"トリム失敗: HTTP {r.status_code}"
+                                    "post_match_trim_http_error", f"トリム失敗: HTTP {r.status_code}",
+                                    params={"code": r.status_code},
                                 )
                         else:
                             log.warning("trim offset out of range: %.1f / %.1f", offset, vduration)
                             self._push_system_event(
-                                "post_match_error", f"トリムオフセット異常: {offset:.1f}s"
+                                "post_match_trim_offset_error", f"トリムオフセット異常: {offset:.1f}s",
+                                params={"offset": f"{offset:.1f}"},
                             )
                     except Exception as e:
                         log.warning("trim error: %s", e)
-                        self._push_system_event("post_match_error", f"トリムエラー: {e}")
+                        self._push_system_event("post_match_trim_error", f"トリムエラー: {e}", params={"error": str(e)})
 
             # ── Step 5: Record trim info in sidecar ───────────────────────────
             if trimmed_path is not None and trim_start_sec is not None:
-                self._push_system_event("post_match_step", "トリム情報を保存中...")
+                self._push_system_event("post_match_saving_trim", "トリム情報を保存中...")
                 try:
                     async with httpx.AsyncClient(timeout=30.0) as c:
                         await c.patch(
@@ -483,7 +490,7 @@ class LogMonitorService:
                     log.warning("state patch error: %s", e)
 
                 # ── Step 6: Map kill times → video offsets ────────────────────
-                self._push_system_event("post_match_step", "キル位置を動画にマッピング中...")
+                self._push_system_event("post_match_mapping_kills", "キル位置を動画にマッピング中...")
                 try:
                     async with httpx.AsyncClient(timeout=180.0) as c:
                         r = await c.post(
@@ -499,14 +506,18 @@ class LogMonitorService:
 
             # ── Final event ───────────────────────────────────────────────────
             if not has_video:
+                trim_key = "no_video"
                 trim_note = " / 動画なし"
             elif trimmed_path:
+                trim_key = "trim_done"
                 trim_note = " / トリム完了"
             else:
+                trim_key = "trim_failed"
                 trim_note = " / トリム失敗"
             self._push_system_event(
                 "post_match_automation",
                 f"自動処理完了: {result_label} / {kills} kills{trim_note} ({match_id})",
+                params={"result": result_key, "kills": kills, "trim": trim_key, "matchId": match_id},
             )
             log.info(
                 "post_match_automation done: %s result=%s kills=%d trimmed=%s",
@@ -515,7 +526,7 @@ class LogMonitorService:
 
         except Exception as e:
             log.warning("post_match_automation error: %s", e)
-            self._push_system_event("post_match_error", f"自動処理エラー: {type(e).__name__}: {e}")
+            self._push_system_event("post_match_error", f"自動処理エラー: {type(e).__name__}: {e}", params={"error": f"{type(e).__name__}: {e}"})
 
     # ---- broadcast helpers ----
 

@@ -195,6 +195,35 @@
     "done": "Done.",
     "backToMatchDetail": "← Back to Match Detail"
   },
+  "systemEvent": {
+    "post_match_started": "Post-match automation started...",
+    "post_match_refresh": "Refreshing match list...",
+    "post_match_analyzing": "Analyzing replay... ({{matchId}})",
+    "post_match_trimming": "Trimming video... (start {{offset}}s / total {{total}}s)",
+    "post_match_saving_trim": "Saving trim info...",
+    "post_match_mapping_kills": "Mapping kill positions to video...",
+    "post_match_automation": "Post-match done: {{result}} / {{kills}} kills / {{trim}} ({{matchId}})",
+    "post_match_fetch_error": "Failed to fetch match: HTTP {{code}}",
+    "post_match_no_match": "No match found",
+    "post_match_trim_http_error": "Trim failed: HTTP {{code}}",
+    "post_match_trim_offset_error": "Trim offset out of range: {{offset}}s",
+    "post_match_trim_error": "Trim error: {{error}}",
+    "post_match_error": "Post-match error: {{error}}",
+    "obs_connected": "OBS connection confirmed",
+    "obs_reconnecting": "OBS disconnected. Attempting reconnect...",
+    "scan_error": "Existing log scan failed: {{error}}",
+    "watch_error": "Watch loop exited unexpectedly: {{error}}",
+    "demos_dir_updated": "demos_dir auto-set: {{dir}}",
+    "result": {
+      "win": "Victory Royale",
+      "loss": "Defeat"
+    },
+    "trim": {
+      "no_video": "no video",
+      "trim_done": "trim done",
+      "trim_failed": "trim failed"
+    }
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Saved to ~/.fortnite-suite/config.json",

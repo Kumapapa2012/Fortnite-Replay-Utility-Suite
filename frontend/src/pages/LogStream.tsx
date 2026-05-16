@@ -3,9 +3,10 @@ import { useTranslation } from "react-i18next";
 import { PageHeader } from "../components/PageHeader";
 import { LogMonitorBanner } from "../components/LogMonitorBanner";
 import { useLogMonitor } from "../contexts/LogMonitorContext";
-import type { StreamedEvent } from "../lib/logMonitor";
+import { formatSystemEvent, type StreamedEvent } from "../lib/logMonitor";
 
 function EventRow({ ev }: { ev: StreamedEvent }) {
+  const { t } = useTranslation("pages");
   if (ev.type === "system") {
     return (
       <tr className="border-t border-[var(--color-border)]">
@@ -14,7 +15,7 @@ function EventRow({ ev }: { ev: StreamedEvent }) {
         </td>
         <td className="py-1.5 text-center">⚙️</td>
         <td className="py-1.5 text-xs text-[var(--color-muted)]">[{ev.kind}]</td>
-        <td className="py-1.5 text-xs">{ev.message}</td>
+        <td className="py-1.5 text-xs">{formatSystemEvent(ev, t)}</td>
       </tr>
     );
   }
