@@ -30,9 +30,9 @@
         <p class="sidebar-heading">このページ</p>
         <ul class="sidebar-list" id="toc-index">
           <li><a href="#purpose"><span class="sn">—</span>このツールの目的</a></li>
-          <li><a href="#chapters"><span class="sn">—</span>章構成</a></li>
+          <li><a href="#about"><span class="sn">—</span>このツールでできること</a></li>
           <li><a href="#requirements"><span class="sn">—</span>前提環境</a></li>
-          <li><a href="#about"><span class="sn">—</span>できること</a></li>
+          <li><a href="#chapters"><span class="sn">—</span>章構成</a></li>
         </ul>
       </div>
       <div class="sidebar-section">
@@ -100,53 +100,17 @@
         </div>
       </section>
 
-      <!-- CHAPTERS -->
-      <section id="chapters">
-        <h2>章構成</h2>
-        <div class="chapter-grid">
-          <a class="chapter-card" href="./01_setup.html">
-            <span class="card-arrow">→</span>
-            <span class="cn">Chapter 01</span>
-            <h3>セットアップ</h3>
-            <p>必要なソフトウェア、リポジトリの取得、Python / Node / .NET の準備と初期設定。</p>
-          </a>
-          <a class="chapter-card" href="./02_startup.html">
-            <span class="card-arrow">→</span>
-            <span class="cn">Chapter 02</span>
-            <h3>起動と停止</h3>
-            <p>6 サービスの一括起動・状態確認・停止。フロントエンドの開発サーバー。</p>
-          </a>
-          <a class="chapter-card" href="./03_dashboard_settings.html">
-            <span class="card-arrow">→</span>
-            <span class="cn">Chapter 03</span>
-            <h3>ダッシュボード &amp; 設定</h3>
-            <p>ホーム画面の見方、各種パス設定、プレイヤー名の登録、テーマ切替。</p>
-          </a>
-          <a class="chapter-card" href="./04_matches_replays.html">
-            <span class="card-arrow">→</span>
-            <span class="cn">Chapter 04</span>
-            <h3>マッチとリプレイ</h3>
-            <p>試合ライブラリの使い方、リプレイ詳細の読み方、移動軌跡マップの確認。</p>
-          </a>
-          <a class="chapter-card" href="./05_videos.html">
-            <span class="card-arrow">→</span>
-            <span class="cn">Chapter 05</span>
-            <h3>動画トリミング</h3>
-            <p>リプレイ起点での動画絞り込み、オフセット候補、I フレーム精度のカット。</p>
-          </a>
-          <a class="chapter-card" href="./06_logs.html">
-            <span class="card-arrow">→</span>
-            <span class="cn">Chapter 06</span>
-            <h3>ログ監視</h3>
-            <p>Fortnite ログの追跡と SSE によるリアルタイム試合イベント受信。</p>
-          </a>
-          <a class="chapter-card" href="./07_troubleshoot.html">
-            <span class="card-arrow">→</span>
-            <span class="cn">Chapter 07</span>
-            <h3>トラブルシュート</h3>
-            <p>よくある症状と対処、サービスが起動しないときの確認順序、ログの場所。</p>
-          </a>
-        </div>
+      <!-- ABOUT -->
+      <section id="about">
+        <h2>このツールでできること</h2>
+        <ul>
+          <li><strong>リプレイの可視化</strong> — <code>.replay</code> をパースして試合結果・キル/デス・移動軌跡マップを表示</li>
+          <li><strong>録画動画のトリミング</strong> — OBS の録画から、該当試合のキルシーンを I フレーム精度で切り出し（<code>_trimmed/</code> サブフォルダに保存）</li>
+          <li><strong>Kill クリップ集の生成</strong> — キル時刻を動画上にマッピングし、各キルシーン（前後 10 秒）を切り出して 1 本の mp4 に連結</li>
+          <li><strong>マッチライブラリ</strong> — リプレイと録画動画を時刻で自動ペアリング</li>
+          <li><strong>ポスト試合自動処理</strong> — 試合終了を検出し、リプレイ解析・動画リンク・トリミングを自動実行。進捗を SSE でリアルタイム通知</li>
+          <li><strong>ログ監視</strong> — Fortnite のログを tail して試合開始/終了をリアルタイム通知。OBS Watchdog で接続状態を自動維持</li>
+        </ul>
       </section>
 
       <!-- REQUIREMENTS -->
@@ -164,15 +128,53 @@
         <p>詳細は <a href="./01_setup.html">01. セットアップ</a> を参照してください。</p>
       </section>
 
-      <!-- ABOUT -->
-      <section id="about">
-        <h2>このツールでできること</h2>
-        <ul>
-          <li><strong>リプレイの可視化</strong> — <code>.replay</code> をパースして試合結果・キル/デス・移動軌跡マップを表示</li>
-          <li><strong>録画動画のトリミング</strong> — OBS の録画から、該当試合のキル/デス瞬間を I フレーム精度で切り出し</li>
-          <li><strong>マッチライブラリ</strong> — リプレイと録画動画を時刻で自動ペアリング</li>
-          <li><strong>ログ監視</strong> — Fortnite のログを tail して試合開始/終了をリアルタイム通知</li>
-        </ul>
+      <!-- CHAPTERS -->
+      <section id="chapters">
+        <h2>章構成</h2>
+        <div class="chapter-grid">
+          <a class="chapter-card" href="./01_setup.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 01</span>
+            <h3>セットアップ</h3>
+            <p>setup.ps1 による初期設定、必要なソフトウェアの準備（Python / Node / .NET / ffmpeg）。</p>
+          </a>
+          <a class="chapter-card" href="./02_startup.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 02</span>
+            <h3>起動と停止</h3>
+            <p>manage.ps1 による全サービスの一括起動・停止・状態確認。フロントエンドの開発サーバー。</p>
+          </a>
+          <a class="chapter-card" href="./03_dashboard_settings.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 03</span>
+            <h3>ダッシュボード &amp; 設定</h3>
+            <p>ホーム画面の見方、各種パス設定、プレイヤー名の登録、テーマ切替。</p>
+          </a>
+          <a class="chapter-card" href="./04_matches_replays.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 04</span>
+            <h3>マッチとリプレイ</h3>
+            <p>試合ライブラリの使い方、自動処理の進捗確認、Kill クリップ集の生成、移動軌跡マップ。</p>
+          </a>
+          <a class="chapter-card" href="./05_videos.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 05</span>
+            <h3>動画トリミング</h3>
+            <p>リプレイ起点での動画絞り込み、オフセット候補、I フレーム精度のカット。出力は <code>_trimmed/</code> サブフォルダ。</p>
+          </a>
+          <a class="chapter-card" href="./06_logs.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 06</span>
+            <h3>ログ監視</h3>
+            <p>Fortnite ログの追跡、SSE によるリアルタイムイベント受信、ポスト試合自動処理のフロー詳細。</p>
+          </a>
+          <a class="chapter-card" href="./07_troubleshoot.html">
+            <span class="card-arrow">→</span>
+            <span class="cn">Chapter 07</span>
+            <h3>トラブルシュート</h3>
+            <p>よくある症状と対処、サービスが起動しないときの確認順序、ログの場所。</p>
+          </a>
+        </div>
       </section>
 
     </article>
