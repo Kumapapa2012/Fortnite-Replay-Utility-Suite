@@ -13,7 +13,7 @@ from .paths import global_config_path
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "player": {
-        "epic_display_name": "",
+        "epic_display_id": "",
     },
     "obs": {
         "recordings_dir": "",

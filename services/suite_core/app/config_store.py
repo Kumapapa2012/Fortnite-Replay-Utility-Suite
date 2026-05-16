@@ -47,7 +47,7 @@ def load_for_api(obs_source: str | None = None) -> dict[str, Any]:
         source = "config_file" if obs.get("recordings_dir") else "default"
 
     return {
-        "user_player_id": player.get("epic_display_name", ""),
+        "user_player_id": player.get("epic_display_id", ""),
         "demos_dir": demos,
         "obs_recording_dir": rec,
         "obs_recording_dir_source": source,
@@ -69,7 +69,7 @@ def save_partial(updates: dict[str, Any]) -> dict[str, Any]:
     obs = dict(raw.get("obs") or {})
 
     if "user_player_id" in updates:
-        player["epic_display_name"] = updates["user_player_id"]
+        player["epic_display_id"] = updates["user_player_id"]
     if "demos_dir" in updates:
         replays["dir"] = updates["demos_dir"]
     if "obs_recording_dir" in updates:

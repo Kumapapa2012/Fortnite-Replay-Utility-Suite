@@ -65,21 +65,18 @@ def build_location_entries(
     return entries
 
 
-def _z_to_color(z: float, z_min: float, z_mean: float, z_max: float) -> tuple[int, int, int]:
-    """Blue (min) → green (mean) → red (max) gradient."""
-    if z <= z_mean:
-        t = (z - z_min) / (z_mean - z_min) if z_mean != z_min else 0.0
-        t = max(0.0, min(1.0, t))
-        r = 0
-        g = int(255 * t)
-        b = int(255 * (1 - t))
+_Z_MAX_CAP = 20_000.0
+
+
+def _z_to_color(z: float, z_max_capped: float) -> tuple[int, int, int]:
+    """Blue (z=0) → green → red (z=z_max_capped) gradient. Values above the cap clamp to red."""
+    t = max(0.0, min(1.0, z / z_max_capped)) if z_max_capped > 0 else 0.0
+    if t <= 0.5:
+        tt = t * 2
+        return (0, int(255 * tt), int(255 * (1 - tt)))
     else:
-        t = (z - z_mean) / (z_max - z_mean) if z_max != z_mean else 0.0
-        t = max(0.0, min(1.0, t))
-        r = int(255 * t)
-        g = int(255 * (1 - t))
-        b = 0
-    return (r, g, b)
+        tt = (t - 0.5) * 2
+        return (int(255 * tt), int(255 * (1 - tt)), 0)
 
 
 def render_route(
@@ -112,21 +109,31 @@ def render_route(
     z_min = min(z_values)
     z_max = max(z_values)
     z_mean = sum(z_values) / len(z_values)
+    z_max_capped = min(z_max, _Z_MAX_CAP)
 
     draw = ImageDraw.Draw(img)
-    dot_r = 1
-    dot_r_end = 5
-    line_width = 1
+    dot_r = 2
+    dot_r_end = 6
+    line_width = 3
 
     points = [(e["map"]["X"], e["map"]["Y"]) for e in entries]
-    colors = [_z_to_color(e["world"]["Z"], z_min, z_mean, z_max) for e in entries]
+    colors = [_z_to_color(e["world"]["Z"], z_max_capped) for e in entries]
 
     for i in range(1, len(points)):
+        draw.line([points[i - 1], points[i]], fill=(255, 255, 255), width=line_width+2)  # 白い縁取り
         draw.line([points[i - 1], points[i]], fill=colors[i], width=line_width)
 
-    for i, (px, py) in enumerate(points):
-        r = dot_r_end if i == 0 or i == len(points) - 1 else dot_r
-        draw.ellipse([(px - r, py - r), (px + r, py + r)], fill=colors[i])
+    # 中間点を先に描画
+    #for i, (px, py) in enumerate(points):
+    #    if i == 0 or i == len(points) - 1:
+    #        continue
+    #    draw.ellipse([(px - dot_r, py - dot_r), (px + dot_r, py + dot_r)], fill=colors[i])
+
+    # 始点・終点を最後に描画（他の点で上書きされないよう）
+    for i in (0, len(points) - 1):
+        px, py = points[i]
+        draw.ellipse([(px - dot_r_end - 2, py - dot_r_end - 2), (px + dot_r_end + 2, py + dot_r_end + 2)], fill=(255, 255, 255))
+        draw.ellipse([(px - dot_r_end, py - dot_r_end), (px + dot_r_end, py + dot_r_end)], fill=colors[i])
 
     buf = BytesIO()
     img.save(buf, format="PNG", optimize=False)

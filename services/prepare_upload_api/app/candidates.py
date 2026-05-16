@@ -1,6 +1,6 @@
 """Compute video-offset candidates from a replay + a video file's mtime/duration.
 
-Pure logic, no I/O except the video file stat (callers pass the already-parsed
+Pure logic, no I/O except the video/replay file stat (callers pass the already-parsed
 replay dict from replay_parser's /api/replay-to-json).
 """
 from __future__ import annotations
@@ -58,25 +58,15 @@ def video_meta(video_path: str, duration_sec: float) -> VideoMeta:
     """Build video metadata. Duration is provided by the caller (ffprobe)."""
     st = os.stat(video_path)
     mtime = datetime.fromtimestamp(st.st_mtime, tz=JST)
-    started = mtime - timedelta(seconds=duration_sec)
+    # OBS embeds the last-frame timestamp in the filename (e.g. "Replay_2026-05-12_22-23-39.mp4").
+    # Use it as the content-end anchor instead of mtime: mtime is the file-write-completion
+    # time (~4-5 s after the last frame) and would shift recording_started_at too late.
+    filename_ts = parse_filename_timestamp(os.path.basename(video_path))
+    content_end = filename_ts if filename_ts is not None else mtime
+    started = content_end - timedelta(seconds=duration_sec)
     return VideoMeta(
         path=video_path, duration_sec=duration_sec, mtime=mtime, recording_started_at=started
     )
-
-
-def _parse_iso_as_utc(s: str) -> datetime:
-    """Parse replay_parser's ISO timestamp into an aware UTC datetime."""
-    # .NET outputs "2026-03-21T10:35:42Z" or "...+00:00" depending on serializer;
-    # also tolerate no-tz strings (treat as UTC).
-    if s.endswith("Z"):
-        s = s[:-1] + "+00:00"
-    try:
-        dt = datetime.fromisoformat(s)
-    except ValueError as e:
-        raise ValueError(f"started_at の解析に失敗: {s!r} ({e})")
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt
 
 
 def _parse_mm_ss(s: str) -> float:
@@ -90,16 +80,17 @@ def _parse_mm_ss(s: str) -> float:
 
 
 def replay_meta(replay_path: str, replay: dict[str, Any]) -> ReplayMeta:
-    game = replay.get("GameData") or {}
-    utc_raw = game.get("UtcTimeStartedMatch")
-    if not utc_raw:
-        raise ValueError("リプレイに UtcTimeStartedMatch がありません。")
-    started_utc = _parse_iso_as_utc(utc_raw)
-    started_jst = started_utc.astimezone(JST)
+    # On Windows st_ctime is the file-creation time = when Fortnite began writing the
+    # replay = the actual demo-recording start.  Eliminations[].Time is seconds elapsed
+    # since that moment, so this is the correct reference for kill-offset calculation.
+    # UtcTimeStartedMatch (stored inside the replay) is ~8 s earlier and reflects a
+    # server-side match-assignment timestamp, not the local demo clock start.
+    st = os.stat(replay_path)
+    ctime = datetime.fromtimestamp(st.st_ctime, tz=JST)
     length_ms = (replay.get("Info") or {}).get("LengthInMs") or 0
     return ReplayMeta(
         path=replay_path,
-        match_started_at=started_jst,
+        match_started_at=ctime,
         match_length_sec=length_ms / 1000.0,
     )
 

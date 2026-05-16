@@ -381,9 +381,8 @@ async def candidates(body: CandidatesBody) -> dict:
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
     # Filter eliminations to those involving the configured user, if set.
-    # (The legacy key is player.epic_display_name — see suite_core.config_store.)
     cfg = global_config.load()
-    user_player_id = ((cfg.get("player") or {}).get("epic_display_name") or "").strip() or None
+    user_player_id = ((cfg.get("player") or {}).get("epic_display_id") or "").strip() or None
     cands = build_candidates(vmeta, replay, rmeta, user_player_id=user_player_id)
 
     return {
@@ -464,10 +463,15 @@ async def trim(body: TrimBody) -> dict:
     except Exception:
         out_duration = max(0.0, duration - body.start_offset_sec)
 
+    # ffmpeg の -ss はキーフレーム境界にスナップするため、要求オフセットより前から
+    # 実際のカットが始まる。duration - out_duration で実際のカット開始位置を算出する。
+    actual_start = round(duration - out_duration, 3)
+
     return {
         "outputPath": str(out_path),
         "sizeBytes": out_path.stat().st_size,
         "durationSec": round(out_duration, 3),
+        "actualStartOffsetSec": actual_start,
         "ffmpegReturncode": r.returncode,
     }
 
