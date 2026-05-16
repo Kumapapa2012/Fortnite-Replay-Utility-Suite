@@ -13,6 +13,7 @@ from typing import Any
 _MATCHES_DIR = Path.home() / ".fortnite-suite" / "matches"
 
 DEFAULT_STATE: dict[str, Any] = {
+    "video_path": None,            # manually or auto linked raw recording
     "trimmed_video_path": None,
     "trim_start_offset_sec": None,
     "kill_offsets_in_trimmed": [],

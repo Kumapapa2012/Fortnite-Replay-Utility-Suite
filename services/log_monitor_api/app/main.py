@@ -56,6 +56,11 @@ class StartBody(BaseModel):
 async def _on_startup() -> None:
     service.bind_loop(asyncio.get_running_loop())
     log.info("log_monitor_api started")
+    try:
+        service.start(enable_obs=True)
+        log.info("log monitor auto-started on service startup")
+    except Exception as e:
+        log.warning("log monitor auto-start failed (will retry via /start): %s", e)
 
 
 @app.on_event("shutdown")

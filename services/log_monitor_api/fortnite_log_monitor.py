@@ -123,6 +123,15 @@ EVENT_PATTERNS: list[EventPattern] = [
         extract=lambda line: _extract_session_id(line),
     ),
     EventPattern(
+        event_id="replay_writing",
+        pattern=re.compile(r"LogLocalFileReplay: Writing replay to '([^']+)'"),
+        label="リプレイ書き込み開始",
+        icon="🎬",
+        phase="loading",
+        extract=lambda line: _extract_replay_dir(line),
+        cooldown_sec=10.0,
+    ),
+    EventPattern(
         event_id="map_loaded",
         pattern=re.compile(r"LoadMap complete \/Hera_Map"),
         label="マップロード完了",
@@ -234,6 +243,12 @@ def _extract_session_id(line: str) -> Optional[str]:
     """セッションIDを抽出"""
     m = re.search(r"Session \[Id: ([a-f0-9]+)\]", line)
     return f"session: {m.group(1)[:12]}..." if m else None
+
+
+def _extract_replay_dir(line: str) -> Optional[str]:
+    """リプレイの書き込み先ディレクトリを抽出"""
+    m = re.search(r"LogLocalFileReplay: Writing replay to '([^']+)'", line)
+    return m.group(1) if m else None
 
 
 # ─── タイムスタンプ解析 ──────────────────────────────────────
@@ -348,6 +363,28 @@ class OBSController:
         if self._save_timer and self._save_timer.is_alive():
             self._save_timer.cancel()
             self._save_timer = None
+
+    def is_connected(self) -> bool:
+        """OBS WebSocket が現在接続中かどうかを確認する。"""
+        if not self._client:
+            return False
+        try:
+            # GetVersion は軽量な ping 代わりのリクエスト
+            self._client.get_version()
+            return True
+        except Exception:
+            return False
+
+    def reconnect(self) -> bool:
+        """切断後に再接続を試みる。"""
+        self.cancel_save()
+        if self._client:
+            try:
+                self._client.disconnect()
+            except Exception:
+                pass
+            self._client = None
+        return self.connect()
 
     def close(self) -> None:
         """タイマーをキャンセルし、WebSocket 接続を切断する。"""
@@ -719,6 +756,17 @@ def find_fortnite_log() -> Optional[str]:
             return str(p)
 
     return None
+
+
+def _default_log_path() -> str:
+    """ログファイルが未検出のときに使うデフォルトパス（watch() がファイル出現を待機する）。"""
+    if sys.platform == "win32":
+        local_appdata = os.environ.get("LOCALAPPDATA", "")
+        if local_appdata:
+            return str(
+                Path(local_appdata) / "FortniteGame" / "Saved" / "Logs" / "FortniteGame.log"
+            )
+    return str(Path.home() / "AppData" / "Local" / "FortniteGame" / "Saved" / "Logs" / "FortniteGame.log")
 
 
 # ─── セッションサマリー ──────────────────────────────────────

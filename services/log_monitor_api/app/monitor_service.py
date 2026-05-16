@@ -65,6 +65,9 @@ class ServiceState:
     recent_events: list[dict] = field(default_factory=list)
 
 
+_OBS_WATCHDOG_INTERVAL = 10.0  # seconds between OBS health checks
+
+
 class LogMonitorService:
     """Singleton-ish wrapper around FortniteLogMonitor.
 
@@ -75,6 +78,7 @@ class LogMonitorService:
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._thread: Optional[threading.Thread] = None
+        self._obs_watchdog_thread: Optional[threading.Thread] = None
         self._monitor: Optional[flm.FortniteLogMonitor] = None
         self._obs: Optional[flm.OBSController] = None
         self._callbacks: Optional[flm.EventCallbacks] = None
@@ -94,11 +98,9 @@ class LogMonitorService:
             if self._state.status.running:
                 return self.status()
 
-            log_path = flm.find_fortnite_log()
-            if not log_path:
-                raise RuntimeError(
-                    "FortniteGame.log が見つかりません。Fortnite を起動済みか確認してください。"
-                )
+            # ログファイルが未検出でも起動を継続する。
+            # watch() の外側ループがファイルの出現を待機する。
+            log_path = flm.find_fortnite_log() or flm._default_log_path()
 
             self._obs = None
             obs_enabled = enable_obs
@@ -119,9 +121,12 @@ class LogMonitorService:
                     obs_connected = True
                 else:
                     obs_error = f"OBS 接続失敗 ({host}:{port})"
+                # 接続失敗時も OBSController インスタンスは保持しておく（watchdog が使う）
+                if self._obs is None:
+                    self._obs = obs
 
             self._callbacks = flm.EventCallbacks(
-                obs=self._obs,
+                obs=self._obs if obs_connected else None,
                 enable_sound=False,
                 discord_webhook=None,
                 csv_path=None,
@@ -135,6 +140,8 @@ class LogMonitorService:
                     original_on_event(ev)
                 finally:
                     self._record_and_broadcast(ev)
+                    if ev.event_id == "replay_writing" and ev.extra:
+                        self._maybe_update_demos_dir(ev.extra)
 
             self._callbacks.on_event = on_event  # type: ignore[assignment]
 
@@ -155,6 +162,13 @@ class LogMonitorService:
 
             self._thread = threading.Thread(target=self._watch_loop, daemon=True)
             self._thread.start()
+
+            if obs_enabled and self._obs is not None:
+                self._obs_watchdog_thread = threading.Thread(
+                    target=self._obs_watchdog_loop, daemon=True
+                )
+                self._obs_watchdog_thread.start()
+
             self._broadcast_state()
             return self.status()
 
@@ -174,12 +188,16 @@ class LogMonitorService:
                     pass
             if self._thread is not None and self._thread.is_alive():
                 self._thread.join(timeout=2.0)
+            if self._obs_watchdog_thread is not None and self._obs_watchdog_thread.is_alive():
+                self._obs_watchdog_thread.join(timeout=2.0)
             self._thread = None
+            self._obs_watchdog_thread = None
             self._monitor = None
             self._callbacks = None
             self._obs = None
             self._state.status.running = False
             self._state.status.phase = "idle"
+            self._state.status.obs_connected = False
             self._broadcast_state()
             return self.status()
 
@@ -225,6 +243,68 @@ class LogMonitorService:
         finally:
             self._state.status.running = False
 
+    def _obs_watchdog_loop(self) -> None:
+        """OBS の死活を定期確認し、切断時は自動再接続を試みる。"""
+        import logging
+        log = logging.getLogger("log_monitor_api")
+
+        while self._state.status.running:
+            time.sleep(_OBS_WATCHDOG_INTERVAL)
+
+            if not self._state.status.running:
+                break
+
+            obs = self._obs
+            if obs is None:
+                continue
+
+            if obs.is_connected():
+                # 接続中: 状態を正として記録
+                if not self._state.status.obs_connected:
+                    self._state.status.obs_connected = True
+                    self._state.status.obs_error = None
+                    self._push_system_event("obs_connected", "OBS 接続を確認")
+                    self._broadcast_state()
+                continue
+
+            # 切断検知
+            if self._state.status.obs_connected:
+                self._state.status.obs_connected = False
+                self._push_system_event("obs_reconnecting", "OBS 切断を検知。再接続を試みます...")
+                self._broadcast_state()
+                log.warning("OBS disconnected, attempting reconnect")
+
+            success = obs.reconnect()
+            if success:
+                self._state.status.obs_connected = True
+                self._state.status.obs_error = None
+                # callbacks に OBS を紐付け直す
+                if self._callbacks is not None:
+                    self._callbacks.obs = obs
+                self._push_system_event("obs_connected", "OBS に再接続しました")
+                self._broadcast_state()
+                log.info("OBS reconnected successfully")
+            else:
+                self._state.status.obs_error = f"OBS 再接続失敗 ({obs.host}:{obs.port})"
+                log.debug("OBS reconnect failed, will retry in %ss", _OBS_WATCHDOG_INTERVAL)
+
+    def _maybe_update_demos_dir(self, replay_dir: str) -> None:
+        """replay_writing 検出時に replays.dir が未設定なら自動設定する。"""
+        import logging
+        from _common import global_config
+        log = logging.getLogger("log_monitor_api")
+        try:
+            cfg = global_config.load()
+            current = ((cfg.get("replays") or {}).get("dir") or "").strip()
+            if current:
+                return
+            cfg.setdefault("replays", {})["dir"] = replay_dir
+            global_config.save(cfg)
+            self._push_system_event("demos_dir_updated", f"demos_dir を自動設定: {replay_dir}")
+            log.info("demos_dir auto-set to %s", replay_dir)
+        except Exception as e:
+            log.warning("demos_dir auto-update failed: %s", e)
+
     def _record_and_broadcast(self, ev: flm.DetectedEvent) -> None:
         payload = {
             "type": "event",
@@ -268,30 +348,174 @@ class LogMonitorService:
         return callback
 
     async def _post_save_automation(self) -> None:
-        """Call suite_core post-match-automation after OBS replay buffer save."""
+        """Full post-match automation: summarize replay + trim video + map kill offsets."""
         import logging
+        from datetime import datetime, timezone, timedelta
+        from pathlib import Path as _Path
+
         log = logging.getLogger("log_monitor_api")
         has_won = self._check_has_won()
+
+        # Wait for OBS to finish writing the replay buffer file to disk.
+        await asyncio.sleep(5.0)
+
+        self._push_system_event("post_match_step", "自動処理開始...")
+
+        _PREPARE_UPLOAD_BASE = f"http://127.0.0.1:{SERVICE_PORTS['prepare_upload_api']}"
+        JST = timezone(timedelta(hours=9))
+
         try:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                r = await client.post(
-                    f"{_SUITE_CORE_BASE}/api/matches/post-match-automation",
+            # ── Step 1: Refresh suite_core match cache ────────────────────────
+            self._push_system_event("post_match_step", "マッチリスト更新中...")
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as c:
+                    await c.post(f"{_SUITE_CORE_BASE}/api/matches/refresh")
+            except Exception as e:
+                log.warning("refresh failed: %s", e)
+
+            # ── Step 2: Get latest match ──────────────────────────────────────
+            async with httpx.AsyncClient(timeout=30.0) as c:
+                r = await c.get(f"{_SUITE_CORE_BASE}/api/matches?limit=1")
+            if r.status_code != 200:
+                self._push_system_event("post_match_error", f"マッチ取得失敗: HTTP {r.status_code}")
+                return
+
+            matches = r.json().get("matches", [])
+            if not matches:
+                self._push_system_event("post_match_error", "マッチが見つかりません")
+                return
+
+            latest = matches[0]
+            match_id: str = latest["id"]
+            has_video: bool = bool(latest.get("has_video"))
+
+            # ── Step 3: Summarize (replay → kill times + win/loss) ────────────
+            self._push_system_event("post_match_step", f"リプレイ解析中... ({match_id})")
+            async with httpx.AsyncClient(timeout=120.0) as c:
+                r = await c.post(
+                    f"{_SUITE_CORE_BASE}/api/matches/{match_id}/summarize",
                     json={"hasWon": has_won},
                 )
+            result_label = "Victory Royale" if has_won else "敗北"
+            kills = 0
             if r.status_code == 200:
-                data = r.json()
-                log.info(
-                    "post-match automation: matchId=%s result=%s kills=%d",
-                    data.get("matchId"), data.get("matchResult"), data.get("killCount", 0),
-                )
-                self._push_system_event(
-                    "post_match_automation",
-                    f"自動集計完了: {data.get('matchResult')} / {data.get('killCount', 0)} kills",
-                )
+                d = r.json()
+                kills = d.get("killCount", 0)
+                mr = d.get("matchResult")
+                if mr:
+                    result_label = "Victory Royale" if mr == "win" else "敗北"
+                log.info("summarize: %s result=%s kills=%d", match_id, mr, kills)
             else:
-                log.warning("post-match automation HTTP %s: %s", r.status_code, r.text[:300])
+                log.warning("summarize failed: %s %s", r.status_code, r.text[:200])
+
+            # ── Step 4: Trim video ────────────────────────────────────────────
+            trimmed_path: str | None = None
+            trim_start_sec: float | None = None
+
+            if has_video:
+                video = latest.get("video") or {}
+                vpath = video.get("path", "")
+                vmtime_str = video.get("mtime", "")
+                vduration = video.get("duration_sec")
+
+                if vpath and vmtime_str and vduration:
+                    try:
+                        match_started = datetime.fromisoformat(latest["match_started_at"])
+                        video_mtime = datetime.fromisoformat(vmtime_str)
+                        if match_started.tzinfo is None:
+                            match_started = match_started.replace(tzinfo=JST)
+                        if video_mtime.tzinfo is None:
+                            video_mtime = video_mtime.replace(tzinfo=JST)
+
+                        recording_started = video_mtime - timedelta(seconds=float(vduration))
+                        offset = (match_started - recording_started).total_seconds()
+
+                        if 0.0 <= offset < float(vduration):
+                            self._push_system_event(
+                                "post_match_step",
+                                f"動画トリミング中... (開始 {offset:.0f}s / 全体 {vduration:.0f}s)",
+                            )
+                            # Store trimmed video in _trimmed/ subdirectory to
+                            # exclude it from suite_core's iterdir() video scan.
+                            p = _Path(vpath)
+                            out_path = str(p.parent / "_trimmed" / f"{p.stem}_trimmed{p.suffix}")
+                            async with httpx.AsyncClient(timeout=600.0) as c:
+                                r = await c.post(
+                                    f"{_PREPARE_UPLOAD_BASE}/api/trim",
+                                    json={
+                                        "videoPath": vpath,
+                                        "startOffsetSec": offset,
+                                        "outputPath": out_path,
+                                    },
+                                )
+                            if r.status_code == 200:
+                                rd = r.json()
+                                trimmed_path = rd["outputPath"]
+                                trim_start_sec = rd.get("actualStartOffsetSec", offset)
+                                log.info("trim done: %s (requested=%.3fs actual=%.3fs)", trimmed_path, offset, trim_start_sec)
+                            else:
+                                log.warning("trim failed: %s %s", r.status_code, r.text[:300])
+                                self._push_system_event(
+                                    "post_match_error", f"トリム失敗: HTTP {r.status_code}"
+                                )
+                        else:
+                            log.warning("trim offset out of range: %.1f / %.1f", offset, vduration)
+                            self._push_system_event(
+                                "post_match_error", f"トリムオフセット異常: {offset:.1f}s"
+                            )
+                    except Exception as e:
+                        log.warning("trim error: %s", e)
+                        self._push_system_event("post_match_error", f"トリムエラー: {e}")
+
+            # ── Step 5: Record trim info in sidecar ───────────────────────────
+            if trimmed_path is not None and trim_start_sec is not None:
+                self._push_system_event("post_match_step", "トリム情報を保存中...")
+                try:
+                    async with httpx.AsyncClient(timeout=30.0) as c:
+                        await c.patch(
+                            f"{_SUITE_CORE_BASE}/api/matches/{match_id}/state",
+                            json={
+                                "trimmedVideoPath": trimmed_path,
+                                "trimStartOffsetSec": trim_start_sec,
+                            },
+                        )
+                except Exception as e:
+                    log.warning("state patch error: %s", e)
+
+                # ── Step 6: Map kill times → video offsets ────────────────────
+                self._push_system_event("post_match_step", "キル位置を動画にマッピング中...")
+                try:
+                    async with httpx.AsyncClient(timeout=180.0) as c:
+                        r = await c.post(
+                            f"{_SUITE_CORE_BASE}/api/matches/{match_id}/compute-kills",
+                        )
+                    if r.status_code == 200:
+                        kd = r.json()
+                        log.info("compute-kills done: %d offsets", kd.get("killCount", 0))
+                    else:
+                        log.warning("compute-kills failed: %s %s", r.status_code, r.text[:200])
+                except Exception as e:
+                    log.warning("compute-kills error: %s", e)
+
+            # ── Final event ───────────────────────────────────────────────────
+            if not has_video:
+                trim_note = " / 動画なし"
+            elif trimmed_path:
+                trim_note = " / トリム完了"
+            else:
+                trim_note = " / トリム失敗"
+            self._push_system_event(
+                "post_match_automation",
+                f"自動処理完了: {result_label} / {kills} kills{trim_note} ({match_id})",
+            )
+            log.info(
+                "post_match_automation done: %s result=%s kills=%d trimmed=%s",
+                match_id, result_label, kills, bool(trimmed_path),
+            )
+
         except Exception as e:
-            log.warning("post-match automation error: %s", e)
+            log.warning("post_match_automation error: %s", e)
+            self._push_system_event("post_match_error", f"自動処理エラー: {type(e).__name__}: {e}")
 
     # ---- broadcast helpers ----
 

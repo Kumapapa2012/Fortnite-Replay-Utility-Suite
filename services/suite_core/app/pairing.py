@@ -6,7 +6,7 @@ Pairing strategy (docs/03 §8.1.3):
    from ffprobe.
 3. A replay pairs with the video whose window contains `T_replay`. If multiple
    qualify, keep the one with the closest mtime.
-4. Unpaired entries still show up (`has_video: false` / `has_replay: false`).
+4. Unpaired replays show up with `has_video: false`. Orphan videos are excluded.
 
 Duration lookup is relatively expensive — we cache by (path, size, mtime) so
 refresh scans stay snappy.
@@ -30,6 +30,7 @@ REPLAY_RE = re.compile(
     re.IGNORECASE,
 )
 VIDEO_EXTS = {".mp4", ".mkv", ".mov"}
+_PAIR_TOLERANCE = timedelta(seconds=2)
 
 
 @dataclass
@@ -84,6 +85,32 @@ class DurationCache:
 
 def _to_jst(ts: float) -> datetime:
     return datetime.fromtimestamp(ts, tz=JST)
+
+
+def _video_json(v: "VideoInfo") -> dict[str, Any]:
+    return {
+        "path": v.path, "filename": v.filename,
+        "size_bytes": v.size_bytes, "mtime": v.mtime.isoformat(),
+        "duration_sec": round(v.duration_sec, 3),
+    }
+
+
+def best_video_for_replay(
+    replay: "ReplayInfo", videos: list["VideoInfo"], exclude: set[str] | None = None
+) -> "VideoInfo | None":
+    candidates = [
+        v for v in videos
+        if (not exclude or v.path not in exclude)
+        and v.recording_started_at <= replay.match_started_at + _PAIR_TOLERANCE
+        and replay.match_started_at <= v.mtime
+    ]
+    after_start = [
+        v for v in candidates
+        if (v.mtime - replay.match_started_at).total_seconds() > 10.0
+    ]
+    if after_start:
+        return min(after_start, key=lambda v: (v.mtime - replay.match_started_at).total_seconds())
+    return min(candidates, key=lambda v: abs((v.mtime - replay.match_started_at).total_seconds()), default=None)
 
 
 def scan_replays(demos_dir: Path) -> list[ReplayInfo]:
@@ -141,13 +168,6 @@ def pair(replays: list[ReplayInfo], videos: list[VideoInfo]) -> list[dict[str, A
     used_videos: set[str] = set()
     matches: list[dict[str, Any]] = []
 
-    def _video_json(v: VideoInfo) -> dict[str, Any]:
-        return {
-            "path": v.path, "filename": v.filename,
-            "size_bytes": v.size_bytes, "mtime": v.mtime.isoformat(),
-            "duration_sec": round(v.duration_sec, 3),
-        }
-
     def _replay_json(r: ReplayInfo) -> dict[str, Any]:
         return {
             "path": r.path, "filename": r.filename,
@@ -155,12 +175,7 @@ def pair(replays: list[ReplayInfo], videos: list[VideoInfo]) -> list[dict[str, A
         }
 
     for r in replays:
-        candidates = [
-            v for v in videos
-            if v.path not in used_videos
-            and v.recording_started_at <= r.match_started_at <= v.mtime
-        ]
-        best = min(candidates, key=lambda v: abs((v.mtime - r.match_started_at).total_seconds()), default=None)
+        best = best_video_for_replay(r, videos, exclude=used_videos)
         if best:
             used_videos.add(best.path)
         matches.append({
@@ -170,19 +185,6 @@ def pair(replays: list[ReplayInfo], videos: list[VideoInfo]) -> list[dict[str, A
             "video": _video_json(best) if best else None,
             "has_replay": True,
             "has_video": best is not None,
-        })
-
-    # Orphan videos: recordings with no matching replay.
-    for v in videos:
-        if v.path in used_videos:
-            continue
-        matches.append({
-            "id": _match_id(v.recording_started_at),
-            "match_started_at": v.recording_started_at.isoformat(),
-            "replay": None,
-            "video": _video_json(v),
-            "has_replay": False,
-            "has_video": True,
         })
 
     matches.sort(key=lambda m: m["match_started_at"], reverse=True)

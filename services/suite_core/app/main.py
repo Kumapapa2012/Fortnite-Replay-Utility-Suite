@@ -2,11 +2,14 @@
 
 Endpoints:
 - GET  /health
-- GET  /api/matches                 paired replay+video list (cached)
-- GET  /api/matches/{id}            single match with optional replay summary
-- POST /api/matches/refresh         re-scan Demos/Videos folders
-- GET  /api/config                  global config + OBS discovery source
-- PUT  /api/config                  partial-update global config
+- GET  /api/matches                       paired replay+video list (cached)
+- GET  /api/matches/{id}                  single match with optional replay summary
+- POST /api/matches/refresh               re-scan Demos/Videos folders
+- PUT  /api/matches/{id}/video            link/unlink a raw recording to a match
+- POST /api/matches/{id}/auto-link-video  auto-detect and link a recording
+- GET  /api/videos                        list videos in the recordings folder
+- GET  /api/config                        global config + OBS discovery source
+- PUT  /api/config                        partial-update global config
 
 Run:
     uvicorn app.main:app --host 127.0.0.1 --port 8003
@@ -18,6 +21,7 @@ import logging
 import shutil
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +41,10 @@ from _common.logging_setup import setup_logging  # noqa: E402
 from _common.ports import SERVICE_PORTS  # noqa: E402
 
 from . import config_store, match_state, obs_discovery  # noqa: E402
-from .pairing import DurationCache, pair, scan_replays, scan_videos, _match_id  # noqa: E402
+from .pairing import (  # noqa: E402
+    DurationCache, JST, VIDEO_EXTS,
+    best_video_for_replay, pair, scan_replays, scan_videos, _match_id, _video_json,
+)
 
 setup_logging("suite_core")
 log = logging.getLogger("suite_core")
@@ -89,15 +96,46 @@ async def _startup() -> None:
     else:
         _obs_source = None  # load_for_api will fall back to config_file/default
 
+    # Schedule the initial match scan as a background task so the server
+    # starts accepting connections immediately (ffprobe on many files can
+    # exceed the startup stabilize window and cause a false smoke-test 500).
+    asyncio.create_task(_bg_initial_refresh())
+
+    log.info(
+        "suite_core started (ffprobe=%s, obs_source=%s)",
+        _ffprobe_path, _obs_source,
+    )
+
+
+async def _bg_initial_refresh() -> None:
     try:
         await _refresh()
+        log.info("initial match scan complete (matches=%d)", len(_matches_cache))
     except Exception as e:
         log.warning("initial match scan failed: %s", e)
 
-    log.info(
-        "suite_core started (ffprobe=%s, obs_source=%s, matches=%d)",
-        _ffprobe_path, _obs_source, len(_matches_cache),
-    )
+
+def _update_cached_match(match_id: str) -> None:
+    """Re-merge sidecar for one cache entry without a full rescan."""
+    for i, m in enumerate(_matches_cache):
+        if m["id"] == match_id:
+            _matches_cache[i] = _merge_state(m)
+            return
+
+
+def _offsets_from_candidates(
+    candidates: list[dict], fallback_trim_start: float | None = None
+) -> tuple[float | None, list[float]]:
+    """Extract trim_start and kill offsets from a candidates API response list."""
+    match_start = next((c for c in candidates if c.get("kind") == "match_start"), None)
+    trim_start = match_start["videoOffsetSec"] if match_start else fallback_trim_start
+    if trim_start is None:
+        return None, []
+    return trim_start, [
+        round(c["videoOffsetSec"] - trim_start, 3)
+        for c in candidates
+        if c.get("kind") == "elimination" and c["videoOffsetSec"] - trim_start >= 0.0
+    ]
 
 
 @app.on_event("shutdown")
@@ -113,11 +151,38 @@ async def health() -> dict:
     return {"status": "ok", "service": "suite_core", "ts": time.time()}
 
 
+def _video_info_from_path(video_path: str) -> dict[str, Any] | None:
+    """Build a video info dict from a path string (used for sidecar-linked videos only)."""
+    p = Path(video_path)
+    if not p.exists() or p.suffix.lower() not in VIDEO_EXTS:
+        return None
+    st = p.stat()
+    dur = _duration_cache.get_or_probe(_ffprobe_path, p)
+    return {
+        "path": str(p),
+        "filename": p.name,
+        "size_bytes": st.st_size,
+        "mtime": datetime.fromtimestamp(st.st_mtime, tz=JST).isoformat(),
+        "duration_sec": round(dur, 3) if dur is not None else 0.0,
+    }
+
+
 def _merge_state(m: dict[str, Any]) -> dict[str, Any]:
     """Merge per-match sidecar state into a match dict from pair()."""
     state = match_state.load(m["id"])
+
+    # Sidecar video_path takes precedence over auto-paired video.
+    video = m.get("video")
+    sidecar_video_path = state.get("video_path")
+    if sidecar_video_path:
+        sidecar_video = _video_info_from_path(sidecar_video_path)
+        if sidecar_video:
+            video = sidecar_video
+
     return {
         **m,
+        "video": video,
+        "has_video": video is not None,
         "has_trimmed_video": state["trimmed_video_path"] is not None,
         "trimmed_video_path": state["trimmed_video_path"],
         "trim_start_offset_sec": state["trim_start_offset_sec"],
@@ -217,16 +282,7 @@ async def patch_match_state(match_id: str, body: MatchStatePatch) -> dict:
     killOffsetsInOriginal が含まれる場合、sidecar の trim_start_offset_sec を使って
     trimmed video 内オフセットへ変換し kill_offsets_in_trimmed として保存する。
     """
-    kwargs: dict[str, Any] = {}
-
-    if body.trimmed_video_path is not None:
-        kwargs["trimmed_video_path"] = body.trimmed_video_path
-    if body.trim_start_offset_sec is not None:
-        kwargs["trim_start_offset_sec"] = body.trim_start_offset_sec
-    if body.has_summary is not None:
-        kwargs["has_summary"] = body.has_summary
-    if body.kill_compilation_path is not None:
-        kwargs["kill_compilation_path"] = body.kill_compilation_path
+    kwargs: dict[str, Any] = body.model_dump(exclude={"kill_offsets_in_original"}, exclude_none=True)
 
     if body.kill_offsets_in_original is not None:
         current = match_state.load(match_id)
@@ -247,10 +303,7 @@ async def patch_match_state(match_id: str, body: MatchStatePatch) -> dict:
         ]
 
     updated = match_state.update(match_id, **kwargs)
-
-    # キャッシュを無効化して次回 /api/matches で最新状態を返す
-    global _matches_cache
-    _matches_cache = []
+    _update_cached_match(match_id)
 
     return {
         "matchId": match_id,
@@ -270,21 +323,20 @@ async def patch_match_state(match_id: str, body: MatchStatePatch) -> dict:
 async def compute_kills(match_id: str) -> dict:
     """自プレイヤーのキルオフセットをリプレイから計算し sidecar に保存する。
 
-    candidates API を内部呼び出しし、epic_display_name で設定された
+    candidates API を内部呼び出しし、epic_display_id で設定された
     自プレイヤーのキル（killIndex あり）のみを抽出する。
-    user_player_id (epic_display_name) が未設定の場合はエラーを返す。
+    user_player_id (epic_display_id) が未設定の場合はエラーを返す。
     trimming が完了していない（trim_start_offset_sec が null）場合もエラー。
     """
-    global _matches_cache
     from _common import global_config
 
     # user_player_id 必須チェック
     cfg = global_config.load()
-    user_player_id = ((cfg.get("player") or {}).get("epic_display_name") or "").strip()
+    user_player_id = ((cfg.get("player") or {}).get("epic_display_id") or "").strip()
     if not user_player_id:
         raise HTTPException(
             status_code=400,
-            detail="epic_display_name が未設定です。設定ページで自分のプレイヤー名を登録してください。",
+            detail="epic_display_id が未設定です。設定ページで自分の PlayerId を登録してください。",
         )
 
     if not _matches_cache:
@@ -292,10 +344,8 @@ async def compute_kills(match_id: str) -> dict:
     target = next((m for m in _matches_cache if m["id"] == match_id), None)
     if target is None:
         raise HTTPException(status_code=404, detail=f"match not found: {match_id}")
-    if not target.get("has_replay"):
-        raise HTTPException(status_code=400, detail="リプレイファイルがありません。")
     if not target.get("has_video"):
-        raise HTTPException(status_code=400, detail="録画動画がありません。")
+        raise HTTPException(status_code=400, detail="録画動画がありません。先に動画をリンクしてください。")
 
     state = match_state.load(match_id)
     if state["trim_start_offset_sec"] is None:
@@ -323,22 +373,23 @@ async def compute_kills(match_id: str) -> dict:
 
     candidates = r.json().get("candidates", [])
 
-    # killIndex が付いているもの = 自プレイヤーがキルした event のみ抽出
-    kill_offsets_in_original = [
-        c["videoOffsetSec"]
-        for c in candidates
-        if c.get("kind") == "elimination" and c.get("killIndex") is not None
-    ]
+    # Prefer match_start event from candidates; fall back to sidecar value.
+    # This is more reliable than the sidecar value when video was re-linked.
+    trim_start, kill_offsets_in_trimmed = _offsets_from_candidates(
+        candidates, fallback_trim_start=state["trim_start_offset_sec"]
+    )
+    if trim_start is None:
+        raise HTTPException(
+            status_code=400,
+            detail="match_start イベントが candidates に含まれておらず、trim_start_offset_sec も未設定です。",
+        )
 
-    trim_start: float = state["trim_start_offset_sec"]
-    kill_offsets_in_trimmed = [
-        round(off - trim_start, 3)
-        for off in kill_offsets_in_original
-        if off - trim_start >= 0.0
-    ]
-
-    match_state.update(match_id, kill_offsets_in_trimmed=kill_offsets_in_trimmed)
-    _matches_cache = []
+    match_state.update(
+        match_id,
+        trim_start_offset_sec=trim_start,
+        kill_offsets_in_trimmed=kill_offsets_in_trimmed,
+    )
+    _update_cached_match(match_id)
 
     return {
         "matchId": match_id,
@@ -346,6 +397,88 @@ async def compute_kills(match_id: str) -> dict:
         "killCount": len(kill_offsets_in_trimmed),
         "killOffsetsInTrimmed": kill_offsets_in_trimmed,
     }
+
+
+async def _extract_kills_from_replay(replay_path: str, user_player_id: str) -> list[float]:
+    """Parse replay and return kill times (seconds from match start) for user_player_id.
+
+    Uses EliminatorInfo.Id — the correct field path per candidates.py.
+    Returns empty list on any failure.
+    """
+    if _client is None:
+        return []
+    try:
+        r = await _client.post(
+            f"{REPLAY_PARSER_BASE}/api/replay-to-json",
+            json={"replayPath": replay_path},
+        )
+        if r.status_code != 200:
+            return []
+        data = r.json()
+        player_id = user_player_id.upper()
+        found = any(
+            (p.get("PlayerId") or "").upper() == player_id
+            for p in (data.get("PlayerData") or [])
+        )
+        if not found:
+            log.warning("_extract_kills: player id '%s' not found in %s", user_player_id, replay_path)
+            return []
+        kill_times: list[float] = []
+        for elim in (data.get("Eliminations") or []):
+            killer_id = ((elim.get("EliminatorInfo") or {}).get("Id") or "").upper()
+            if killer_id != player_id:
+                continue
+            t_str = (elim.get("Time") or "")
+            try:
+                parts = t_str.split(":")
+                if len(parts) == 2:
+                    kill_times.append(float(int(parts[0]) * 60 + float(parts[1])))
+                elif len(parts) == 3:
+                    kill_times.append(float(int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])))
+            except Exception:
+                pass
+        return kill_times
+    except Exception as e:
+        log.warning("_extract_kills replay parse failed for %s: %s", replay_path, e)
+        return []
+
+
+async def _do_auto_link_video(match_id: str, replay_info: Any) -> dict[str, Any] | None:
+    """Try to auto-pair a video for the given replay and link it in the sidecar.
+
+    On success, also computes trim_start_offset_sec + kill_offsets_in_trimmed via
+    the candidates API and saves them.  Returns the video info dict or None.
+    """
+    suite_cfg = config_store.load_for_api(_obs_source)
+    recordings_dir = Path(suite_cfg["obs_recording_dir"])
+
+    vids = await asyncio.to_thread(scan_videos, recordings_dir, _duration_cache, _ffprobe_path)
+    best = best_video_for_replay(replay_info, vids)
+    if best is None:
+        return None
+
+    match_state.update(match_id, video_path=best.path)
+
+    if _client is not None:
+        try:
+            r = await _client.post(
+                f"{PREPARE_UPLOAD_BASE}/api/candidates",
+                json={"videoPath": best.path, "replayPath": replay_info.path},
+            )
+            if r.status_code == 200:
+                trim_start, kill_offsets_in_trimmed = _offsets_from_candidates(
+                    r.json().get("candidates", [])
+                )
+                if trim_start is not None:
+                    match_state.update(
+                        match_id,
+                        trim_start_offset_sec=trim_start,
+                        kill_offsets_in_trimmed=kill_offsets_in_trimmed,
+                    )
+        except Exception as e:
+            log.warning("_do_auto_link_video: candidates API failed for %s: %s", match_id, e)
+
+    return _video_json(best)
 
 
 class SummarizeBody(BaseModel):
@@ -360,15 +493,14 @@ async def summarize_match(match_id: str, body: SummarizeBody) -> dict:
     has_won が指定されない場合は match_result を変更しない（キルタイムのみ更新）。
     has_summary は常に True に設定する。
     """
-    global _matches_cache
     from _common import global_config
 
     cfg = global_config.load()
-    user_player_id = ((cfg.get("player") or {}).get("epic_display_name") or "").strip()
+    user_player_id = ((cfg.get("player") or {}).get("epic_display_id") or "").strip()
     if not user_player_id:
         raise HTTPException(
             status_code=400,
-            detail="epic_display_name が未設定です。設定ページでプレイヤー名を登録してください。",
+            detail="epic_display_id が未設定です。設定ページでプレイヤー ID を登録してください。",
         )
 
     if not _matches_cache:
@@ -376,42 +508,8 @@ async def summarize_match(match_id: str, body: SummarizeBody) -> dict:
     target = next((m for m in _matches_cache if m["id"] == match_id), None)
     if target is None:
         raise HTTPException(status_code=404, detail=f"match not found: {match_id}")
-    if not target.get("has_replay"):
-        raise HTTPException(status_code=400, detail="リプレイファイルがありません。")
 
-    replay_path = target["replay"]["path"]
-    kill_times_in_match: list[float] = []
-    if _client is not None:
-        try:
-            r = await _client.post(
-                f"{REPLAY_PARSER_BASE}/api/replay-to-json",
-                json={"replayPath": replay_path},
-            )
-            if r.status_code == 200:
-                data = r.json()
-                players = data.get("PlayerData") or []
-                player = next(
-                    (p for p in players
-                     if (p.get("PlayerName") or "").lower() == user_player_id.lower()),
-                    None,
-                )
-                if player:
-                    player_id = (player.get("PlayerId") or "").upper()
-                    for elim in (data.get("Eliminations") or []):
-                        if (elim.get("Eliminator") or "").upper() == player_id:
-                            t_str = (elim.get("Time") or "")
-                            try:
-                                parts = t_str.split(":")
-                                kill_times_in_match.append(float(int(parts[0]) * 60 + int(parts[1])))
-                            except Exception:
-                                pass
-                else:
-                    log.warning(
-                        "summarize_match: player '%s' not found in replay %s",
-                        user_player_id, match_id,
-                    )
-        except Exception as e:
-            log.warning("summarize_match replay parse failed for %s: %s", match_id, e)
+    kill_times_in_match = await _extract_kills_from_replay(target["replay"]["path"], user_player_id)
 
     kwargs: dict[str, Any] = {
         "kill_times_in_match": kill_times_in_match,
@@ -421,7 +519,7 @@ async def summarize_match(match_id: str, body: SummarizeBody) -> dict:
         kwargs["match_result"] = "win" if body.has_won else "loss"
 
     match_state.update(match_id, **kwargs)
-    _matches_cache = []
+    _update_cached_match(match_id)
 
     log.info("summarize_match: match=%s result=%s kills=%d", match_id, kwargs.get("match_result"), len(kill_times_in_match))
     return {
@@ -430,6 +528,61 @@ async def summarize_match(match_id: str, body: SummarizeBody) -> dict:
         "killCount": len(kill_times_in_match),
         "killTimesInMatch": kill_times_in_match,
     }
+
+
+class LinkVideoBody(BaseModel):
+    video_path: str | None = Field(None, alias="videoPath")
+    model_config = {"populate_by_name": True}
+
+
+@app.put("/api/matches/{match_id}/video")
+async def link_video(match_id: str, body: LinkVideoBody) -> dict:
+    """録画動画をマッチに手動リンク（または null でリンク解除）する。"""
+    if body.video_path is not None and not Path(body.video_path).exists():
+        raise HTTPException(status_code=400, detail=f"ファイルが見つかりません: {body.video_path}")
+
+    match_state.update(match_id, video_path=body.video_path)
+    _update_cached_match(match_id)
+
+    return {"matchId": match_id, "videoPath": body.video_path}
+
+
+@app.post("/api/matches/{match_id}/auto-link-video")
+async def auto_link_video(match_id: str) -> dict:
+    """録画フォルダをスキャンし、リプレイ時刻で最良の動画を自動リンクする。
+
+    リンク成功時は candidates API で trim_start_offset_sec + kill_offsets_in_trimmed も計算する。
+    """
+    if not _matches_cache:
+        await _refresh()
+    target = next((m for m in _matches_cache if m["id"] == match_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail=f"match not found: {match_id}")
+
+    replays = await asyncio.to_thread(
+        scan_replays, Path(config_store.load_for_api(_obs_source)["demos_dir"])
+    )
+    replay_info = next((r for r in replays if _match_id(r.match_started_at) == match_id), None)
+    if replay_info is None:
+        raise HTTPException(status_code=404, detail="リプレイファイルが見つかりません。")
+
+    video_info = await _do_auto_link_video(match_id, replay_info)
+    if video_info is None:
+        raise HTTPException(status_code=404, detail="条件に合う動画が見つかりませんでした。")
+
+    _update_cached_match(match_id)
+    log.info("auto_link_video: match=%s linked=%s", match_id, video_info["path"])
+    return {"matchId": match_id, "video": video_info}
+
+
+@app.get("/api/videos")
+async def list_videos() -> dict:
+    """録画フォルダ内の動画ファイル一覧を返す（手動リンク用）。"""
+    suite_cfg = config_store.load_for_api(_obs_source)
+    recordings_dir = Path(suite_cfg["obs_recording_dir"])
+    vids = await asyncio.to_thread(scan_videos, recordings_dir, _duration_cache, _ffprobe_path)
+    items = sorted(vids, key=lambda v: v.mtime, reverse=True)
+    return {"count": len(items), "videos": [_video_json(v) for v in items]}
 
 
 @app.get("/api/config")
@@ -459,17 +612,16 @@ async def post_match_automation(body: PostMatchBody) -> dict:
     """ロビー復帰 + OBS リプレイバッファ保存後に呼ばれる自動集計エンドポイント。
 
     最新のリプレイを解析し、自プレイヤーのキルタイム・勝敗を sidecar に保存する。
-    has_summary を True にしてマッチを「集計済み」とマークする。
+    動画の自動リンクも試みる。成功すれば trim_start + kill_offsets_in_trimmed も計算する。
     """
-    global _matches_cache
     from _common import global_config
 
     cfg = global_config.load()
-    user_player_id = ((cfg.get("player") or {}).get("epic_display_name") or "").strip()
+    user_player_id = ((cfg.get("player") or {}).get("epic_display_id") or "").strip()
     if not user_player_id:
         raise HTTPException(
             status_code=400,
-            detail="epic_display_name が未設定です。設定ページでプレイヤー名を登録してください。",
+            detail="epic_display_id が未設定です。設定ページでプレイヤー ID を登録してください。",
         )
 
     suite_cfg = config_store.load_for_api(_obs_source)
@@ -478,41 +630,10 @@ async def post_match_automation(body: PostMatchBody) -> dict:
     if not replays:
         raise HTTPException(status_code=404, detail="リプレイファイルが見つかりません。")
 
-    latest = replays[0]  # scan_replays は match_started_at 降順ソード済み
+    latest = replays[0]  # scan_replays は match_started_at 降順ソート済み
     match_id = _match_id(latest.match_started_at)
 
-    kill_times_in_match: list[float] = []
-    if _client is not None:
-        try:
-            r = await _client.post(
-                f"{REPLAY_PARSER_BASE}/api/replay-to-json",
-                json={"replayPath": latest.path},
-            )
-            if r.status_code == 200:
-                data = r.json()
-                players = data.get("PlayerData") or []
-                player = next(
-                    (p for p in players
-                     if (p.get("PlayerName") or "").lower() == user_player_id.lower()),
-                    None,
-                )
-                if player:
-                    player_id = (player.get("PlayerId") or "").upper()
-                    for elim in (data.get("Eliminations") or []):
-                        if (elim.get("Eliminator") or "").upper() == player_id:
-                            t_str = (elim.get("Time") or "")
-                            try:
-                                parts = t_str.split(":")
-                                kill_times_in_match.append(float(int(parts[0]) * 60 + int(parts[1])))
-                            except Exception:
-                                pass
-                else:
-                    log.warning(
-                        "post_match_automation: player '%s' not found in replay %s",
-                        user_player_id, latest.filename,
-                    )
-        except Exception as e:
-            log.warning("post_match_automation replay parse failed: %s", e)
+    kill_times_in_match = await _extract_kills_from_replay(latest.path, user_player_id)
 
     match_result = "win" if body.has_won else "loss"
     match_state.update(
@@ -521,15 +642,21 @@ async def post_match_automation(body: PostMatchBody) -> dict:
         match_result=match_result,
         has_summary=True,
     )
-    _matches_cache = []
+
+    video_info = await _do_auto_link_video(match_id, latest)
+    video_linked = video_info is not None
+
+    _update_cached_match(match_id)
 
     log.info(
-        "post_match_automation: match=%s result=%s kills=%d",
-        match_id, match_result, len(kill_times_in_match),
+        "post_match_automation: match=%s result=%s kills=%d video_linked=%s",
+        match_id, match_result, len(kill_times_in_match), video_linked,
     )
     return {
         "matchId": match_id,
         "matchResult": match_result,
         "killCount": len(kill_times_in_match),
         "killTimesInMatch": kill_times_in_match,
+        "videoLinked": video_linked,
+        "video": video_info,
     }
