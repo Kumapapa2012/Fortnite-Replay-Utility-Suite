@@ -95,21 +95,21 @@ EVENT_PATTERNS: list[EventPattern] = [
     EventPattern(
         event_id="game_launch",
         pattern=re.compile(r"^Log file open"),
-        label="Fortnite launched",
+        label="Fortnite 起動",
         icon="🚀",
         phase="launch",
     ),
     EventPattern(
         event_id="lobby_enter",
         pattern=re.compile(r"LoadMap:.*\/Game\/Maps\/Frontend"),
-        label="Entered lobby",
+        label="ロビーに入った",
         icon="🏠",
         phase="lobby",
     ),
     EventPattern(
         event_id="matchmaking_start",
         pattern=re.compile(r"StartMatchmaking - Starting matchmaking to bucket"),
-        label="Matchmaking started",
+        label="マッチメイキング開始",
         icon="🔍",
         phase="matchmaking",
         extract=lambda line: _extract_playlist(line),
@@ -117,7 +117,7 @@ EVENT_PATTERNS: list[EventPattern] = [
     EventPattern(
         event_id="session_found",
         pattern=re.compile(r"MatchmakingLog:.*Succesfully Found Session"),
-        label="Server found",
+        label="サーバー発見",
         icon="🎯",
         phase="connecting",
         extract=lambda line: _extract_session_id(line),
@@ -125,7 +125,7 @@ EVENT_PATTERNS: list[EventPattern] = [
     EventPattern(
         event_id="replay_writing",
         pattern=re.compile(r"LogLocalFileReplay: Writing replay to '([^']+)'"),
-        label="Replay write started",
+        label="リプレイ書き込み開始",
         icon="🎬",
         phase="loading",
         extract=lambda line: _extract_replay_dir(line),
@@ -134,63 +134,63 @@ EVENT_PATTERNS: list[EventPattern] = [
     EventPattern(
         event_id="map_loaded",
         pattern=re.compile(r"LoadMap complete \/Hera_Map"),
-        label="Map loaded",
+        label="マップロード完了",
         icon="🗺️",
         phase="loading",
     ),
     EventPattern(
         event_id="phase_warmup",
         pattern=re.compile(r"HandleGamePhaseChanged.*Setup.*Warmup"),
-        label="Warmup started",
+        label="ウォームアップ開始",
         icon="⏳",
         phase="warmup",
     ),
     EventPattern(
         event_id="phase_aircraft",
         pattern=re.compile(r"HandleGamePhaseChanged.*Warmup.*Aircraft"),
-        label="Boarded battle bus",
+        label="バトルバス搭乗",
         icon="🚌",
         phase="aircraft",
     ),
     EventPattern(
         event_id="bus_flying",
         pattern=re.compile(r"PhaseStep.*BusFlying"),
-        label="Bus flying",
+        label="バス発車",
         icon="✈️",
         phase="flying",
     ),
     EventPattern(
         event_id="phase_safezones",
         pattern=re.compile(r"HandleGamePhaseChanged.*Aircraft.*SafeZones"),
-        label="Match started (drop available)",
+        label="試合開始（降下可能）",
         icon="⚔️",
         phase="ingame",
     ),
     EventPattern(
         event_id="storm_forming",
         pattern=re.compile(r"PhaseStep.*StormForming"),
-        label="Storm forming",
+        label="ストーム収縮開始",
         icon="🌀",
         phase="ingame",
     ),
     EventPattern(
         event_id="storm_holding",
         pattern=re.compile(r"PhaseStep.*StormHolding"),
-        label="Storm holding",
+        label="ストーム停止",
         icon="🌀",
         phase="ingame",
     ),
     EventPattern(
         event_id="player_kill",
         pattern=re.compile(r"LogGfeSDK.*Posted Request HLSetVideo"),
-        label="Kill!",
+        label="キル！",
         icon="💥",
         phase="ingame",
     ),
     EventPattern(
         event_id="player_death",
         pattern=re.compile(r"LogFortDeathCameraMode.*current view target Controller:(.+)"),
-        label="Death",
+        label="死亡",
         icon="💀",
         phase="ingame",
         extract=lambda line: _extract_death_player(line),
@@ -198,7 +198,7 @@ EVENT_PATTERNS: list[EventPattern] = [
     EventPattern(
         event_id="victory_royale",
         pattern=re.compile(r"LogFortPostScreen.*GetLocalPlayerHasWinningPlacement 1"),
-        label="Victory Royale!",
+        label="Victory Royale！",
         icon="👑",
         phase="post_match",
         cooldown_sec=60.0,
@@ -206,21 +206,21 @@ EVENT_PATTERNS: list[EventPattern] = [
     EventPattern(
         event_id="match_end",
         pattern=re.compile(r"ClientSendEndBattleRoyaleMatchForPlayer"),
-        label="Match ended",
+        label="試合終了",
         icon="🏁",
         phase="post_match",
     ),
     EventPattern(
         event_id="return_lobby",
         pattern=re.compile(r"FortPC::ReturnToMainMenu\(\)"),
-        label="Returned to lobby",
+        label="ロビーに戻った",
         icon="🔙",
         phase="lobby",
     ),
     EventPattern(
         event_id="game_exit",
         pattern=re.compile(r"^Log file closed"),
-        label="Fortnite exited",
+        label="Fortnite 終了",
         icon="⏹️",
         phase="exit",
     ),
@@ -328,10 +328,10 @@ class OBSController:
             self._client = obs.ReqClient(
                 host=self.host, port=self.port, password=self.password
             )
-            print(f"  ✅ OBS connected ({self.host}:{self.port})")
+            print(f"  ✅ OBS 接続成功 ({self.host}:{self.port})")
             return True
         except Exception as e:
-            print(f"  ⚠ OBS connection failed: {e}")
+            print(f"  ⚠ OBS 接続失敗: {e}")
             self._client = None
             return False
 
@@ -341,19 +341,19 @@ class OBSController:
             return
         try:
             self._client.save_replay_buffer()
-            print("  [OBS] 💾 Replay buffer saved")
+            print("  [OBS] 💾 リプレイバッファ保存")
             if self._post_save_callback:
                 try:
                     self._post_save_callback()
                 except Exception as cb_e:
-                    print(f"  [OBS] ⚠ post_save_callback error: {cb_e}")
+                    print(f"  [OBS] ⚠ post_save_callback エラー: {cb_e}")
         except Exception as e:
-            print(f"  [OBS] ⚠ Replay buffer save error: {e}")
+            print(f"  [OBS] ⚠ リプレイバッファ保存エラー: {e}")
 
     def schedule_save(self) -> None:
         """save_delay 秒後にリプレイバッファを保存する。既存タイマーはキャンセルする。"""
         self.cancel_save()
-        print(f"  [OBS] ⏱️  Replay buffer save scheduled in {self.save_delay:.0f}s")
+        print(f"  [OBS] ⏱️  {self.save_delay:.0f}秒後にリプレイバッファ保存をスケジュール")
         self._save_timer = threading.Timer(self.save_delay, self.save_replay)
         self._save_timer.daemon = True
         self._save_timer.start()
@@ -448,7 +448,7 @@ class EventCallbacks:
             try:
                 cb(event)
             except Exception as e:
-                print(f"  ⚠ Custom callback error: {e}")
+                print(f"  ⚠ カスタムコールバックエラー: {e}")
 
     def _handle_obs(self, event: DetectedEvent) -> None:
         """OBS リプレイバッファ保存制御"""
@@ -527,14 +527,14 @@ class EventCallbacks:
                 "title": f"{event.icon} {event.label}",
                 "color": phase_colors.get(event.phase, 0x6B7280),
                 "fields": [
-                    {"name": "Phase", "value": event.phase, "inline": True},
-                    {"name": "Time", "value": event.timestamp or "N/A", "inline": True},
+                    {"name": "フェーズ", "value": event.phase, "inline": True},
+                    {"name": "時刻", "value": event.timestamp or "N/A", "inline": True},
                 ],
                 "timestamp": datetime.utcnow().isoformat(),
             }
             if event.extra:
                 embed["fields"].append(
-                    {"name": "Details", "value": event.extra, "inline": False}
+                    {"name": "詳細", "value": event.extra, "inline": False}
                 )
 
             payload = json.dumps({"embeds": [embed]}).encode("utf-8")
@@ -545,7 +545,7 @@ class EventCallbacks:
             )
             urllib.request.urlopen(req, timeout=5)
         except Exception as e:
-            print(f"  ⚠ Discord notification failed: {e}")
+            print(f"  ⚠ Discord通知失敗: {e}")
 
     def _write_csv(self, event: DetectedEvent):
         """CSV記録"""
@@ -621,8 +621,8 @@ class FortniteLogMonitor:
         if not self.log_path.exists():
             return
 
-        print(f"\n  📂 Scanning existing log: {self.log_path}")
-        print(f"  ⏱️  Entries from {self.start_time.strftime('%H:%M:%S')} onwards")
+        print(f"\n  📂 既存ログをスキャン中: {self.log_path}")
+        print(f"  ⏱️  {self.start_time.strftime('%H:%M:%S')} 以降のエントリを対象")
         print(f"  {'─' * 50}")
 
         skipped = 0
@@ -635,9 +635,9 @@ class FortniteLogMonitor:
                 self._process_line(line)
 
         print(f"  {'─' * 50}")
-        print(f"  📊 Scan complete: {len(self.events)} events detected, {self.match_count} matches")
+        print(f"  📊 スキャン完了: {len(self.events)}件のイベント検出, {self.match_count}試合")
         if skipped:
-            print(f"  ⏭  Skipped {skipped} entries before start time")
+            print(f"  ⏭  起動前のエントリ {skipped}行をスキップ")
         print()
 
     def watch(self, poll_interval: float = 0.5):
@@ -653,10 +653,10 @@ class FortniteLogMonitor:
         """
         self._running = True
 
-        print(f"\n  👁️  Real-time monitoring started")
+        print(f"\n  👁️  リアルタイム監視開始")
         print(f"  📄 {self.log_path}")
-        print(f"  ⏱️  Poll interval: {poll_interval}s")
-        print(f"  🛑 Stop: Ctrl+C")
+        print(f"  ⏱️  ポーリング間隔: {poll_interval}秒")
+        print(f"  🛑 停止: Ctrl+C")
         print(f"  {'─' * 50}\n")
 
         # 外側ループ: Fortnite の起動サイクル単位で繰り返す
@@ -668,11 +668,11 @@ class FortniteLogMonitor:
                     time.sleep(2)
                 if not self._running:
                     break
-                print(f"  ✅ Fortnite is running\n")
+                print(f"  ✅ Fortnite の起動を確認しました\n")
 
             # ログファイルが出現するまで待機
             while self._running and not self.log_path.exists():
-                print(f"  ⏳ Waiting for log file... ({self.log_path})")
+                print(f"  ⏳ ログファイル待機中... ({self.log_path})")
                 time.sleep(2)
 
             if not self._running:
@@ -694,19 +694,19 @@ class FortniteLogMonitor:
                         file_size = self.log_path.stat().st_size
                         if file_size < current_pos:
                             # ファイルが短くなった = ログがリセットされた（稀なケース）
-                            print("\n  🔄 Log file reset detected (Fortnite restart)\n")
+                            print("\n  🔄 ログファイルがリセットされました（Fortnite再起動検出）\n")
                             f.seek(0)
                             self.current_phase = "idle"
                             continue
                     except FileNotFoundError:
                         # ファイルが削除された = Fortnite が再起動した
-                        print("\n  🔄 Log file deleted (Fortnite restart detected)")
+                        print("\n  🔄 ログファイルが削除されました（Fortnite再起動検出）")
                         self.current_phase = "idle"
                         break  # 内側ループを抜けて外側ループの先頭へ
 
                     # Fortnite プロセスが終了していれば内側ループを抜ける
                     if not is_fortnite_running():
-                        print("\n  ⏹️  Fortnite exited. Waiting for restart...")
+                        print("\n  ⏹️  Fortnite の終了を検知しました。再起動を待機中...")
                         self.current_phase = "idle"
                         break  # 外側ループの先頭に戻り、次の起動を待つ
 
@@ -774,14 +774,14 @@ def _default_log_path() -> str:
 def print_session_summary(monitor: FortniteLogMonitor):
     """セッションのサマリーを表示"""
     print(f"\n  {'═' * 50}")
-    print(f"  📊 Session Summary")
+    print(f"  📊 セッションサマリー")
     print(f"  {'─' * 50}")
-    print(f"  Matches:      {monitor.match_count}")
-    print(f"  Events:       {len(monitor.events)}")
-    print(f"  Last phase:   {monitor.current_phase}")
+    print(f"  試合数:       {monitor.match_count}")
+    print(f"  検出イベント: {len(monitor.events)}件")
+    print(f"  最終フェーズ: {monitor.current_phase}")
 
     if monitor.events:
-        print(f"\n  Event history:")
+        print(f"\n  イベント履歴:")
         for ev in monitor.events:
             extra = f" ({ev.extra})" if ev.extra else ""
             print(f"    {ev.icon} [{ev.timestamp or '??:??:??'}] {ev.label}{extra}")
@@ -793,21 +793,21 @@ def print_session_summary(monitor: FortniteLogMonitor):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Fortnite Log Monitor - Real-time log monitoring",
+        description="Fortnite Log Monitor - リアルタイムログ監視",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  python fortnite_log_monitor.py                          # console output only
-  python fortnite_log_monitor.py --sound                  # with beep sounds
-  python fortnite_log_monitor.py --webhook URL            # Discord notifications
-  python fortnite_log_monitor.py --csv matches.csv        # CSV logging
-  python fortnite_log_monitor.py --obs                    # OBS recording control
-  python fortnite_log_monitor.py --scan-only              # scan existing log only
+使用例:
+  python fortnite_log_monitor.py                          # 基本（コンソール表示のみ）
+  python fortnite_log_monitor.py --sound                  # ビープ音付き
+  python fortnite_log_monitor.py --webhook URL            # Discord通知
+  python fortnite_log_monitor.py --csv matches.csv        # CSV記録
+  python fortnite_log_monitor.py --obs                    # OBS録画制御
+  python fortnite_log_monitor.py --scan-only              # 既存ログの解析のみ
         """,
     )
     parser.add_argument(
         "--log-path",
-        help="Path to FortniteGame.log (default: auto-detect)",
+        help="FortniteGame.logのパス（デフォルト: 自動検出）",
     )
     parser.add_argument(
         "--webhook",
@@ -816,32 +816,32 @@ Examples:
     parser.add_argument(
         "--sound",
         action="store_true",
-        help="Play a beep sound on event detection",
+        help="イベント検出時にビープ音を鳴らす",
     )
     parser.add_argument(
         "--csv",
-        help="Record events to a CSV file",
+        help="イベントをCSVファイルに記録",
     )
     parser.add_argument(
         "--verbose", "-v",
         action="store_true",
-        help="Also print the raw matched log line",
+        help="検出したログ行の原文も表示",
     )
     parser.add_argument(
         "--scan-only",
         action="store_true",
-        help="Scan existing log only (no real-time monitoring)",
+        help="既存ログの解析のみ（リアルタイム監視なし）",
     )
     parser.add_argument(
         "--poll-interval",
         type=float,
         default=0.5,
-        help="Polling interval in seconds (default: 0.5)",
+        help="ポーリング間隔（秒）（デフォルト: 0.5）",
     )
     parser.add_argument(
         "--obs",
         action="store_true",
-        help="Enable OBS WebSocket integration (reads credentials from .env)",
+        help="OBS WebSocket 連携を有効化（.env から接続情報を読み込む）",
     )
 
     args = parser.parse_args()
@@ -853,7 +853,7 @@ Examples:
     print()
     print("  ┌─────────────────────────────────────────┐")
     print("  │     🎮 Fortnite Log Monitor v1.0        │")
-    print("  │     Real-time log monitoring script      │")
+    print("  │     リアルタイムログ監視スクリプト       │")
     print("  └─────────────────────────────────────────┘")
 
     # ── ログパス解決 ──
@@ -861,11 +861,11 @@ Examples:
     if not log_path:
         log_path = find_fortnite_log()
         if log_path:
-            print(f"\n  ✅ Log file found: {log_path}")
+            print(f"\n  ✅ ログファイル検出: {log_path}")
         else:
-            print("\n  ❌ Log file not found.")
-            print("  Specify the path with --log-path.")
-            print("  Default path: %LOCALAPPDATA%\\FortniteGame\\Saved\\Logs\\FortniteGame.log")
+            print("\n  ❌ ログファイルが見つかりません。")
+            print("  --log-path オプションでパスを指定してください。")
+            print("  通常のパス: %LOCALAPPDATA%\\FortniteGame\\Saved\\Logs\\FortniteGame.log")
             sys.exit(1)
 
     # ── OBS セットアップ ──
@@ -877,7 +877,7 @@ Examples:
         save_delay = float(os.environ.get("OBS_SAVE_DELAY", "10"))
         obs_controller = OBSController(host, port, password, save_delay)
         if not obs_controller.connect():
-            print("  ⚠ OBS connection failed. Continuing without OBS integration.")
+            print("  ⚠ OBS に接続できませんでした。OBS 連携なしで続行します。")
             obs_controller = None
 
     # ── コールバック設定 ──
@@ -902,7 +902,7 @@ Examples:
             # リアルタイム監視開始
             monitor.watch(poll_interval=args.poll_interval)
     except KeyboardInterrupt:
-        print("\n\n  🛑 Monitoring stopped")
+        print("\n\n  🛑 監視を停止しました")
         print_session_summary(monitor)
     finally:
         callbacks.close()
