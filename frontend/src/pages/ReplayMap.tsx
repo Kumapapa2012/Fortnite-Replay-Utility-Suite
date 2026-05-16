@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
@@ -42,6 +42,40 @@ export function ReplayMap() {
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [render, setRender] = useState<RenderResult | null>(null);
+
+  // ── ルーペ ──────────────────────────────────────────────────
+  const CROP = 64;
+  const MODAL_SIZE = CROP * 2; // 128px
+  const imgRef = useRef<HTMLImageElement>(null);
+  const isDragging = useRef(false);
+  const [lupe, setLupe] = useState<{ left: number; top: number; dataUrl: string } | null>(null);
+
+  useEffect(() => {
+    const onUp = () => { isDragging.current = false; setLupe(null); };
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+  }, []);
+
+  const showLupe = (e: React.MouseEvent) => {
+    const img = imgRef.current;
+    if (!img) return;
+    const rect = img.getBoundingClientRect();
+    const scaleX = img.naturalWidth / rect.width;
+    const scaleY = img.naturalHeight / rect.height;
+    const srcX = Math.round((e.clientX - rect.left) * scaleX - CROP / 2);
+    const srcY = Math.round((e.clientY - rect.top) * scaleY - CROP / 2);
+    const canvas = document.createElement("canvas");
+    canvas.width = MODAL_SIZE;
+    canvas.height = MODAL_SIZE;
+    const ctx = canvas.getContext("2d")!;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, srcX, srcY, CROP, CROP, 0, 0, MODAL_SIZE, MODAL_SIZE);
+    setLupe({
+      left: e.clientX - MODAL_SIZE / 2,
+      top:  e.clientY - MODAL_SIZE / 2,
+      dataUrl: canvas.toDataURL(),
+    });
+  };
 
   // Default the dropdown to the first human with a playable id.
   useEffect(() => {
@@ -110,6 +144,7 @@ export function ReplayMap() {
     e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
 
   return (
+    <>
     <div>
       <PageHeader
         title={`マップ: ${session.fileName}`}
@@ -160,7 +195,10 @@ export function ReplayMap() {
                 disabled={!playersQuery.data}
                 className="rounded-md border border-[var(--color-border)] bg-transparent px-2 py-1 text-xs min-w-[16rem]"
               >
-                {playersQuery.data?.players.map((p) => (
+                {playersQuery.data?.players
+                  .slice()
+                  .sort((a, b) => a.playerName.localeCompare(b.playerName))
+                  .map((p) => (
                   <option key={p.playerId || p.playerName} value={p.playerId}>
                     {p.playerName}
                     {p.isBot ? " [bot]" : ""}
@@ -218,11 +256,19 @@ export function ReplayMap() {
               レンダリング失敗: {errorText(renderMutation.error)}
             </p>
           ) : render ? (
-            <div className="overflow-auto rounded bg-black/20">
+            <div
+              className="overflow-auto rounded bg-black/20"
+              style={{ cursor: "crosshair" }}
+              onMouseDown={(e) => { if (e.button !== 0) return; isDragging.current = true; showLupe(e); }}
+              onMouseMove={(e) => { if (isDragging.current) showLupe(e); }}
+              onMouseLeave={() => { isDragging.current = false; setLupe(null); }}
+            >
               <img
+                ref={imgRef}
                 src={render.blobUrl}
                 alt="Replay route map"
                 className="max-w-full"
+                draggable={false}
               />
             </div>
           ) : (
@@ -233,5 +279,29 @@ export function ReplayMap() {
         </section>
       </div>
     </div>
+
+    {lupe && (
+      <div
+        style={{
+          position: "fixed",
+          left: lupe.left,
+          top: lupe.top,
+          width: MODAL_SIZE,
+          height: MODAL_SIZE,
+          zIndex: 9999,
+          border: "2px solid rgba(255,255,255,0.8)",
+          borderRadius: 4,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.6)",
+          overflow: "hidden",
+          pointerEvents: "none",
+        }}
+      >
+        <img
+          src={lupe.dataUrl}
+          style={{ display: "block", width: MODAL_SIZE, height: MODAL_SIZE, imageRendering: "pixelated" }}
+        />
+      </div>
+    )}
+    </>
   );
 }

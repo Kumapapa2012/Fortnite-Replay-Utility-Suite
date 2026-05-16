@@ -75,8 +75,8 @@ export function Settings() {
         {draft && (
           <>
             <Field
-              label="Epic 表示名 (user_player_id)"
-              hint="リプレイ内の自分の PlayerId/Name と照合するのに使います。"
+              label="Epic Player ID (epic_display_id)"
+              hint="リプレイ内の自分の PlayerId (UUID) と照合するのに使います。"
               value={draft.userPlayerId}
               onChange={onField("userPlayerId")}
             />

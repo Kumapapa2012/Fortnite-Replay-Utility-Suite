@@ -19,7 +19,7 @@ const PHASE_COLOR: Record<string, string> = {
 };
 
 export function LogMonitorBanner({ compact = false }: { compact?: boolean }) {
-  const { status, connection } = useLogMonitor();
+  const { status, connection, lastSystemMessage } = useLogMonitor();
   if (!status) return null;
 
   const phaseLabel = PHASE_LABEL[status.phase] ?? status.phase;
@@ -48,6 +48,11 @@ export function LogMonitorBanner({ compact = false }: { compact?: boolean }) {
               <div className="text-xs text-[var(--color-muted)] mt-0.5 truncate">
                 最新: {status.lastEvent.icon} {status.lastEvent.label} (
                 {status.lastEvent.detectedAt})
+              </div>
+            )}
+            {lastSystemMessage && (
+              <div className="text-xs text-[var(--color-accent)] mt-0.5 truncate">
+                自動処理: {lastSystemMessage}
               </div>
             )}
           </div>

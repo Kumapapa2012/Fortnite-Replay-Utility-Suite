@@ -32,6 +32,8 @@ interface LogMonitorContextValue {
   stop: () => Promise<void>;
   busy: boolean;
   lastError: string | null;
+  /** Latest system event message from post-match automation (step / result / error). */
+  lastSystemMessage: string | null;
 }
 
 const Ctx = createContext<LogMonitorContextValue | null>(null);
@@ -56,6 +58,7 @@ export function LogMonitorProvider({ children }: { children: ReactNode }) {
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [busy, setBusy] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [lastSystemMessage, setLastSystemMessage] = useState<string | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
@@ -90,6 +93,13 @@ export function LogMonitorProvider({ children }: { children: ReactNode }) {
             });
             if (ev.type === "event") {
               setStatus((s) => (s ? { ...s, lastEvent: ev, phase: ev.phase } : s));
+            } else if (
+              ev.type === "system" &&
+              (ev.kind === "post_match_step" ||
+                ev.kind === "post_match_automation" ||
+                ev.kind === "post_match_error")
+            ) {
+              setLastSystemMessage(ev.message);
             }
           }
         } catch {
@@ -150,8 +160,9 @@ export function LogMonitorProvider({ children }: { children: ReactNode }) {
       stop,
       busy,
       lastError,
+      lastSystemMessage,
     }),
-    [status, events, connection, busy, lastError],
+    [status, events, connection, busy, lastError, lastSystemMessage],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

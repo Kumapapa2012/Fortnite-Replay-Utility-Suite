@@ -59,7 +59,6 @@ function MatchCard({ m }: { m: Match }) {
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <Badge ok={m.hasReplay} label="Replay" />
           <Badge ok={m.hasVideo} label="Video" />
           <Badge ok={m.hasTrimmedVideo} label="Trimmed" />
           <Badge ok={m.hasSummary} label="Summary" />
@@ -67,19 +66,16 @@ function MatchCard({ m }: { m: Match }) {
         </div>
       </div>
       <div className="mt-3 grid grid-cols-1 gap-1 text-[11px]">
-        {m.replay && (
-          <p className="font-mono truncate" title={m.replay.filename}>
-            📼 {m.replay.filename} ({bytes(m.replay.sizeBytes)})
-          </p>
-        )}
-        {m.video && (
+        <p className="font-mono truncate" title={m.replay?.filename}>
+          📼 {m.replay?.filename} ({bytes(m.replay?.sizeBytes ?? 0)})
+        </p>
+        {m.video ? (
           <p className="font-mono truncate" title={m.video.filename}>
             🎬 {m.video.filename} — {fmtDuration(m.video.durationSec)} /{" "}
             {bytes(m.video.sizeBytes)}
           </p>
-        )}
-        {!m.replay && !m.video && (
-          <p className="text-[var(--color-muted)]">—</p>
+        ) : (
+          <p className="text-[var(--color-muted)] text-[11px]">🎬 動画未リンク</p>
         )}
       </div>
     </Link>
@@ -135,7 +131,7 @@ export function MatchLibrary() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             {matches.data.matches.map((m) => (
-              <MatchCard key={m.id + (m.replay?.path ?? "") + (m.video?.path ?? "")} m={m} />
+              <MatchCard key={m.id} m={m} />
             ))}
           </div>
         )}

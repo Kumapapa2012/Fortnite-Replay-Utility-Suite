@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { PageHeader } from "../components/PageHeader";
@@ -48,6 +49,7 @@ export function MatchDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const [manualVideoPath, setManualVideoPath] = useState("");
 
   const match = useQuery({
     queryKey: ["match", id],
@@ -94,6 +96,27 @@ export function MatchDetail() {
     },
   });
 
+  const autoLinkMut = useMutation({
+    mutationFn: () => suiteCoreApi.autoLinkVideo(id!),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["match", id] });
+    },
+  });
+
+  const linkVideoMut = useMutation({
+    mutationFn: (path: string | null) => suiteCoreApi.linkVideo(id!, path),
+    onSuccess: () => {
+      setManualVideoPath("");
+      qc.invalidateQueries({ queryKey: ["match", id] });
+    },
+  });
+
+  const videosQuery = useQuery({
+    queryKey: ["suite-videos"],
+    queryFn: () => suiteCoreApi.listVideos(),
+    enabled: false,
+  });
+
   if (!id) return <div className="p-6 text-sm">マッチ ID が不正です。</div>;
 
   const m = match.data;
@@ -126,7 +149,7 @@ export function MatchDetail() {
             <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
               <h3 className="text-sm font-medium mb-3">処理状態</h3>
               <div className="flex flex-wrap gap-2">
-                <StatusBadge ok={m.hasReplay} label="Replay" />
+                <StatusBadge ok={true} label="Replay" />
                 <StatusBadge ok={m.hasVideo} label="Video" />
                 <StatusBadge ok={m.hasTrimmedVideo} label="Trimmed" />
                 <StatusBadge ok={m.hasSummary} label="Summary" />
@@ -183,14 +206,14 @@ export function MatchDetail() {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => summarizeMut.mutate(true)}
-                  disabled={summarizeMut.isPending || !m.hasReplay}
+                  disabled={summarizeMut.isPending}
                   className="rounded-md bg-yellow-500/20 border border-yellow-500/40 px-3 py-1.5 text-xs text-yellow-300 hover:bg-yellow-500/30 disabled:opacity-40"
                 >
                   {summarizeMut.isPending ? "集計中…" : "👑 勝利として集計"}
                 </button>
                 <button
                   onClick={() => summarizeMut.mutate(false)}
-                  disabled={summarizeMut.isPending || !m.hasReplay}
+                  disabled={summarizeMut.isPending}
                   className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)] disabled:opacity-40"
                 >
                   {summarizeMut.isPending ? "集計中…" : "敗北として集計"}
@@ -204,9 +227,6 @@ export function MatchDetail() {
               )}
               {summarizeMut.error && (
                 <p className="text-xs text-rose-400">失敗: {errText(summarizeMut.error)}</p>
-              )}
-              {!m.hasReplay && (
-                <p className="text-xs text-amber-400">リプレイファイルが必要です。</p>
               )}
             </section>
 
@@ -262,16 +282,69 @@ export function MatchDetail() {
                     className="h-28 w-48 rounded bg-black/40 object-cover"
                   />
                   <Link
-                    to="/videos"
+                    to={`/videos?matchId=${encodeURIComponent(m.id)}`}
                     className="inline-block rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)]"
                   >
                     トリミング UI へ
                   </Link>
+                  <button
+                    onClick={() => linkVideoMut.mutate(null)}
+                    disabled={linkVideoMut.isPending}
+                    className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-rose-400 disabled:opacity-50"
+                  >
+                    リンク解除
+                  </button>
                 </>
               ) : (
-                <p className="text-xs text-[var(--color-muted)]">
-                  この試合の録画はありません。
-                </p>
+                <div className="space-y-3">
+                  <p className="text-xs text-[var(--color-muted)]">
+                    この試合の録画動画がリンクされていません。
+                  </p>
+                  {/* 自動検出 */}
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <button
+                      onClick={() => autoLinkMut.mutate()}
+                      disabled={autoLinkMut.isPending}
+                      className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs text-white disabled:opacity-50"
+                    >
+                      {autoLinkMut.isPending ? "検索中…" : "自動検出"}
+                    </button>
+                    {autoLinkMut.isError && (
+                      <span className="text-xs text-amber-400">
+                        見つかりませんでした。手動でリンクしてください。
+                      </span>
+                    )}
+                  </div>
+                  {/* 手動リンク */}
+                  <div className="space-y-2">
+                    <p className="text-xs text-[var(--color-muted)]">手動リンク</p>
+                    <div className="flex gap-2">
+                      <select
+                        className="flex-1 rounded-md border border-[var(--color-border)] bg-transparent px-2 py-1 text-xs"
+                        value={manualVideoPath}
+                        onChange={(e) => setManualVideoPath(e.target.value)}
+                        onFocus={() => !videosQuery.data && videosQuery.refetch()}
+                      >
+                        <option value="">— 動画を選択 —</option>
+                        {videosQuery.data?.videos.map((v) => (
+                          <option key={v.path} value={v.path}>
+                            {v.filename} ({fmtDuration(v.durationSec)})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => manualVideoPath && linkVideoMut.mutate(manualVideoPath)}
+                        disabled={!manualVideoPath || linkVideoMut.isPending}
+                        className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)] disabled:opacity-40"
+                      >
+                        リンク
+                      </button>
+                    </div>
+                    {linkVideoMut.error && (
+                      <p className="text-xs text-rose-400">失敗: {errText(linkVideoMut.error)}</p>
+                    )}
+                  </div>
+                </div>
               )}
             </section>
 
@@ -293,7 +366,7 @@ export function MatchDetail() {
                   <div className="flex flex-wrap gap-2 items-center">
                     <button
                       onClick={() => computeKillsMut.mutate()}
-                      disabled={computeKillsMut.isPending || !m.hasReplay}
+                      disabled={computeKillsMut.isPending}
                       className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs hover:border-[var(--color-accent)] disabled:opacity-40"
                     >
                       {computeKillsMut.isPending ? "計算中…" : "Kill オフセットを計算"}
@@ -303,9 +376,6 @@ export function MatchDetail() {
                         ✓ {m.killOffsetsInTrimmed.length} 件 /{" "}
                         {m.killOffsetsInTrimmed.map(fmtSec).join(", ")}
                       </span>
-                    )}
-                    {!m.hasReplay && (
-                      <span className="text-xs text-amber-400">リプレイが必要です</span>
                     )}
                   </div>
                   {computeKillsMut.isSuccess && (

@@ -31,7 +31,7 @@ function EventRow({ ev }: { ev: StreamedEvent }) {
 }
 
 export function LogStream() {
-  const { status, events, start, stop, busy, lastError } = useLogMonitor();
+  const { status, events } = useLogMonitor();
 
   return (
     <div>
@@ -43,25 +43,7 @@ export function LogStream() {
         <LogMonitorBanner />
 
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium">監視コントロール</h3>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => start(true)}
-                disabled={busy || status?.running}
-                className="rounded-md bg-[var(--color-accent)] text-white px-3 py-1.5 text-xs disabled:opacity-50"
-              >
-                {busy ? "…" : "開始"}
-              </button>
-              <button
-                onClick={() => stop()}
-                disabled={busy || !status?.running}
-                className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs disabled:opacity-50 hover:border-[var(--color-accent)]"
-              >
-                停止
-              </button>
-            </div>
-          </div>
+          <h3 className="text-sm font-medium mb-3">監視状態</h3>
           {status && (
             <dl className="grid grid-cols-2 md:grid-cols-3 gap-y-1 gap-x-4 text-xs">
               <dt className="text-[var(--color-muted)]">ログファイル</dt>
@@ -80,9 +62,6 @@ export function LogStream() {
               <dd className="md:col-span-2">{status.matchCount}</dd>
             </dl>
           )}
-          {lastError && (
-            <p className="mt-2 text-xs text-rose-500">エラー: {lastError}</p>
-          )}
         </div>
 
         <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
@@ -92,7 +71,7 @@ export function LogStream() {
           </div>
           {events.length === 0 ? (
             <p className="text-sm text-[var(--color-muted)]">
-              イベントはまだありません。監視を開始すると表示されます。
+              イベントはまだありません。Fortnite を起動すると表示されます。
             </p>
           ) : (
             <div className="max-h-[60vh] overflow-auto">

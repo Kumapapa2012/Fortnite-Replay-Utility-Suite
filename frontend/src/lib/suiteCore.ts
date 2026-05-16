@@ -25,9 +25,8 @@ export interface MatchVideo {
 export interface Match {
   id: string;
   matchStartedAt: string;
-  replay: MatchReplay | null;
+  replay: MatchReplay | null;  // always present (a match requires a replay)
   video: MatchVideo | null;
-  hasReplay: boolean;
   hasVideo: boolean;
   // sidecar state
   hasTrimmedVideo: boolean;
@@ -60,6 +59,21 @@ export interface PostMatchAutomationResponse {
   matchResult: "win" | "loss";
   killCount: number;
   killTimesInMatch: number[];
+  videoLinked: boolean;
+  video: MatchVideo | null;
+}
+
+export interface VideoItem {
+  path: string;
+  filename: string;
+  sizeBytes: number;
+  mtime: string;
+  durationSec: number;
+}
+
+export interface VideoListResponse {
+  count: number;
+  videos: VideoItem[];
 }
 
 export interface MatchStateResponse {
@@ -116,4 +130,10 @@ export const suiteCoreApi = {
     api.post<ComputeKillsResponse>(`${BASE}/matches/${id}/compute-kills`),
   summarizeMatch: (id: string, hasWon: boolean | null = null) =>
     api.post<PostMatchAutomationResponse>(`${BASE}/matches/${encodeURIComponent(id)}/summarize`, { hasWon }),
+  linkVideo: (id: string, videoPath: string | null) =>
+    api.put<{ matchId: string; videoPath: string | null }>(`${BASE}/matches/${id}/video`, { videoPath }),
+  autoLinkVideo: (id: string) =>
+    api.post<{ matchId: string; video: MatchVideo }>(`${BASE}/matches/${id}/auto-link-video`),
+  listVideos: () =>
+    api.get<VideoListResponse>(`${BASE}/videos`),
 };
