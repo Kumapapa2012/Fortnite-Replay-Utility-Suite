@@ -186,7 +186,7 @@ app.MapPost("/api/upload", async (HttpRequest request) =>
     }
 });
 
-// POST /api/result — 選択したプレイヤーとオフセットでマッチ結果を返す
+// POST /api/result — 選択したプレイヤーとオフセットでマッチ結果データを返す（フロントエンドで Mustache レンダリング）
 app.MapPost("/api/result", async (ParseRequest req) =>
 {
     if (!sessions.TryGetValue(req.SessionId, out var session))
@@ -204,8 +204,8 @@ app.MapPost("/api/result", async (ParseRequest req) =>
         selectedPlayer = players[req.PlayerIndex];
     }
 
-    var result = await session.Helper.RenderMatchResultFromTemplate(selectedPlayer, req.Offset);
-    return Results.Ok(new { result });
+    var data = await session.Helper.BuildResultDataAsync(selectedPlayer, req.Offset);
+    return Results.Ok(data);
 });
 
 // POST /api/replay-to-json — サーバ間呼び出し用。ディスク上の .replay を JSON フルダンプで返す。

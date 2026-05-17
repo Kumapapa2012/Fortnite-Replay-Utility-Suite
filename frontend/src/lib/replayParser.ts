@@ -30,8 +30,40 @@ export interface ParseResponse {
   fullPath: string;
 }
 
-export interface ResultResponse {
-  result: string;
+export interface EliminationEntry {
+  nth: string;
+  time: string;
+  playerName: string;
+  cosmeticsName: string;
+  humanOrBot: string;
+}
+
+export interface ResultData {
+  startedAt: string;
+  endedAt: string;
+  duration: string;
+  totalPlayers: number;
+  humanPlayers: number;
+  botPlayers: number;
+  playerName: string;
+  cosmeticsName: string;
+  humanOrBot: string;
+  isWinner: boolean;
+  isEliminated: boolean;
+  placement: number;
+  placementDisplay: string;
+  eliminationCount: number;
+  eliminations: EliminationEntry[];
+  eliminatedByPlayerName: string | null;
+  eliminatedByCosmeticsName: string | null;
+  eliminatedByHumanOrBot: string | null;
+  eliminatedByTime: string | null;
+  os: string;
+  cpu: string;
+  memory: string;
+  availableMemory: string;
+  gpu: string;
+  resolution: string;
 }
 
 const BASE = "/api/replay-parser";
@@ -43,7 +75,7 @@ export const replayParserApi = {
   parseFromDisk: (fullPath: string) =>
     api.post<ParseResponse>(`${BASE}/replays/parse`, { fullPath }, RAW),
   renderResult: (sessionId: string, playerIndex: number, offset: number) =>
-    api.post<ResultResponse>(`${BASE}/result`, { sessionId, playerIndex, offset }, RAW),
+    api.post<ResultData>(`${BASE}/result`, { sessionId, playerIndex, offset }, RAW),
   deleteSession: (sessionId: string) =>
     api.del<void>(`${BASE}/session/${sessionId}`, RAW),
   exportJsonUrl: (sessionId: string) => `${BASE}/export/${sessionId}`,

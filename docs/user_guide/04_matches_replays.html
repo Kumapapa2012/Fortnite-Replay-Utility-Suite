@@ -312,7 +312,7 @@
 
       <section id="replay-detail">
         <h2><span class="h2-num">4</span>リプレイ詳細</h2>
-        <p>リプレイ行をクリックすると <code>/replays/:id</code> に遷移し、Scriban テンプレートで生成されたマッチ結果テキストが表示されます。</p>
+        <p>リプレイ行をクリックすると <code>/replays/:id</code> に遷移し、マッチ結果テキストが表示されます。右上の「コピー」ボタンで内容をクリップボードにコピーできます。</p>
         <figure class="figure">
           <img src="./assets/img/04_04_replay_detail.png" alt="/replays/:id 詳細画面（マッチ結果テキスト）" loading="lazy" />
           <figcaption>図 4.4 — リプレイ詳細。プレーンテキストで試合結果を表示</figcaption>
@@ -322,7 +322,15 @@
           <span class="callout-icon">💡</span>
           <div class="callout-body">
             <span class="callout-title">表示の仕組み</span>
-            <p>表示されるテキストは <code>replay_parser</code>（.NET）が <code>.replay</code> をパースし、Scriban テンプレートでレンダリングした結果です。改行や空白が保持されるよう <code>&lt;pre&gt;</code> でラップして表示しています。プレイヤー切り替えのドロップダウンで、自分以外のプレイヤー視点の情報も確認できます。</p>
+            <p><code>replay_parser</code>（.NET）が <code>.replay</code> をパースして構造化データを返し、ブラウザ上で <strong>Mustache テンプレート</strong>（設定ページで編集可能）を適用してテキストをレンダリングします。改行や空白が保持されるよう <code>&lt;pre&gt;</code> でラップして表示しています。プレイヤー切り替えのドロップダウンで、自分以外のプレイヤー視点の情報も確認できます。</p>
+          </div>
+        </div>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">✏️</span>
+          <div class="callout-body">
+            <span class="callout-title">出力内容はテンプレートでカスタマイズ可能</span>
+            <p>出力されるテキストの書式は自由に変更できます。設定ページ（<a href="./03_dashboard_settings.html#template">03 章 §4 — マッチ結果テンプレート</a>）でテンプレートを編集し、「保存」してからリプレイを開くと新しい書式で表示されます。利用できるフィールド名の一覧も同章に記載しています。</p>
           </div>
         </div>
 

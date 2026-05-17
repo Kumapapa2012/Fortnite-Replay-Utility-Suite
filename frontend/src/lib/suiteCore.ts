@@ -114,6 +114,7 @@ export interface SuiteConfig {
   obsRecordingDir: string;
   obsRecordingDirSource: ObsDirSource;
   logPath: string;
+  replayResultTemplate: string;
 }
 
 export const suiteCoreApi = {

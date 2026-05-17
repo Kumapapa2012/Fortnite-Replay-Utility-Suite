@@ -131,7 +131,9 @@
     "matchResult": "マッチ結果",
     "generating": "生成中…",
     "generateFailed": "生成失敗: {{error}}",
-    "selectPlayer": "プレイヤーを選択すると結果が表示されます。"
+    "selectPlayer": "プレイヤーを選択すると結果が表示されます。",
+    "copy": "コピー",
+    "copied": "コピーしました！"
   },
   "replayMap": {
     "title": "マップ: {{filename}}",
@@ -254,6 +256,8 @@
     "fieldObsDirHint": "OBS WebSocket 接続時は自動取得されます。現在の取得元:",
     "fieldLogPath": "Fortnite ログパス (log_path)",
     "fieldLogPathHint": "通常は %LOCALAPPDATA%\\FortniteGame\\Saved\\Logs\\FortniteGame.log",
+    "fieldResultTemplate": "マッチ結果テンプレート (Mustache)",
+    "fieldResultTemplateHint": "{{player_name}}, {{placement_display}}, {{#eliminations}}...{{/eliminations}} などのフィールドが使えます。リプレイ詳細の「コピー」ボタンで出力されます。",
     "saveFailed": "保存失敗: {{error}}"
   }
 }
