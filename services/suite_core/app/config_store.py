@@ -14,7 +14,7 @@ from _common import global_config
 
 log = logging.getLogger("suite_core")
 
-_ALLOWED_KEYS = {"user_player_id", "demos_dir", "obs_recording_dir", "log_path"}
+_ALLOWED_KEYS = {"user_player_id", "demos_dir", "obs_recording_dir", "log_path", "replay_result_template"}
 
 
 def _default_demos_dir() -> str:
@@ -52,6 +52,7 @@ def load_for_api(obs_source: str | None = None) -> dict[str, Any]:
         "obs_recording_dir": rec,
         "obs_recording_dir_source": source,
         "log_path": raw.get("log_path") or _default_log_path(),
+        "replay_result_template": raw.get("replay_result_template", ""),
     }
 
 
@@ -76,6 +77,8 @@ def save_partial(updates: dict[str, Any]) -> dict[str, Any]:
         obs["recordings_dir"] = updates["obs_recording_dir"]
     if "log_path" in updates:
         raw["log_path"] = updates["log_path"]
+    if "replay_result_template" in updates:
+        raw["replay_result_template"] = updates["replay_result_template"]
 
     raw["player"] = player
     raw["replays"] = replays
@@ -103,3 +106,6 @@ def _validate(updates: dict[str, Any]) -> None:
         p = Path(v).expanduser()
         if not (p.exists() or p.parent.is_dir()):
             raise ValueError(f"log_path: file or parent directory not found ({v})")
+    if "replay_result_template" in updates:
+        if not isinstance(updates["replay_result_template"], str):
+            raise ValueError("replay_result_template must be a string.")

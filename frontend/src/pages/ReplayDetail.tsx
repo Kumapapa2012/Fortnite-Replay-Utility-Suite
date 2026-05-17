@@ -1,24 +1,51 @@
 import { useEffect, useMemo, useState } from "react";
+import Mustache from "mustache";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+Mustache.escape = (text: string) => text;
 import { Link, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { PageHeader } from "../components/PageHeader";
 import { replayParserApi, type ParseResponse } from "../lib/replayParser";
+import { suiteCoreApi } from "../lib/suiteCore";
 import { ApiError } from "../lib/api";
 import { useLangPath } from "../hooks/useLangPath";
 
-/** Wraps plain text in a minimal HTML document using <pre> so whitespace and
- * newlines survive when rendered inside an iframe. HTML entities are escaped first. */
-function textToPreDoc(text: string): string {
-  const escaped = text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-html,body{margin:0;padding:0;background:#fff;color:#111;}
-pre{margin:0;padding:16px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;}
-</style></head><body><pre>${escaped}</pre></body></html>`;
+function buildTemplateData(data: ReturnType<typeof replayParserApi.renderResult> extends Promise<infer T> ? T : never) {
+  return {
+    started_at: data.startedAt,
+    ended_at: data.endedAt,
+    duration: data.duration,
+    total_players: data.totalPlayers,
+    human_players: data.humanPlayers,
+    bot_players: data.botPlayers,
+    player_name: data.playerName,
+    cosmetics_name: data.cosmeticsName,
+    human_or_bot: data.humanOrBot,
+    is_winner: data.isWinner,
+    is_eliminated: data.isEliminated,
+    placement: data.placement,
+    placement_display: data.placementDisplay,
+    elimination_count: data.eliminationCount,
+    eliminations: data.eliminations.map((e) => ({
+      nth: e.nth,
+      time: e.time,
+      player_name: e.playerName,
+      cosmetics_name: e.cosmeticsName,
+      human_or_bot: e.humanOrBot,
+    })),
+    eliminated_by_player_name: data.eliminatedByPlayerName,
+    eliminated_by_cosmetics_name: data.eliminatedByCosmeticsName,
+    eliminated_by_human_or_bot: data.eliminatedByHumanOrBot,
+    eliminated_by_time: data.eliminatedByTime,
+    os: data.os,
+    cpu: data.cpu,
+    memory: data.memory,
+    available_memory: data.availableMemory,
+    gpu: data.gpu,
+    resolution: data.resolution,
+  };
 }
 
 export function ReplayDetail() {
@@ -34,8 +61,8 @@ export function ReplayDetail() {
 
   const [playerIndex, setPlayerIndex] = useState<number | null>(null);
   const [offset, setOffset] = useState<number>(0);
+  const [copied, setCopied] = useState(false);
 
-  // Default player selection once session becomes available.
   useEffect(() => {
     if (playerIndex === null && session && session.players.length > 0) {
       const first = session.players.find((p) => !p.isBot) ?? session.players[0];
@@ -45,10 +72,26 @@ export function ReplayDetail() {
 
   const resultQuery = useQuery({
     queryKey: ["replay-result", id, playerIndex, offset],
-    queryFn: () =>
-      replayParserApi.renderResult(id!, playerIndex!, offset),
+    queryFn: () => replayParserApi.renderResult(id!, playerIndex!, offset),
     enabled: Boolean(id && playerIndex !== null),
   });
+
+  const configQuery = useQuery({
+    queryKey: ["suite-config"],
+    queryFn: suiteCoreApi.getConfig,
+  });
+
+  const renderedText = useMemo(() => {
+    if (!resultQuery.data || !configQuery.data) return null;
+    try {
+      return Mustache.render(
+        configQuery.data.replayResultTemplate,
+        buildTemplateData(resultQuery.data),
+      );
+    } catch {
+      return null;
+    }
+  }, [resultQuery.data, configQuery.data]);
 
   const deleteMutation = useMutation({
     mutationFn: () => replayParserApi.deleteSession(id!),
@@ -56,6 +99,14 @@ export function ReplayDetail() {
       qc.removeQueries({ queryKey: ["replay-session", id] });
     },
   });
+
+  const handleCopy = () => {
+    if (!renderedText) return;
+    navigator.clipboard.writeText(renderedText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   if (!id) {
     return <div className="p-6 text-sm">{t("replayDetail.invalidId")}</div>;
@@ -138,9 +189,19 @@ export function ReplayDetail() {
         <section className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2">
             <h3 className="text-sm font-medium">{t("replayDetail.matchResult")}</h3>
-            {resultQuery.isFetching ? (
-              <span className="text-xs text-[var(--color-muted)]">{t("replayDetail.generating")}</span>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {resultQuery.isFetching && (
+                <span className="text-xs text-[var(--color-muted)]">{t("replayDetail.generating")}</span>
+              )}
+              {renderedText && (
+                <button
+                  onClick={handleCopy}
+                  className="rounded-md border border-[var(--color-border)] px-3 py-1 text-xs hover:border-[var(--color-accent)]"
+                >
+                  {copied ? t("replayDetail.copied") : t("replayDetail.copy")}
+                </button>
+              )}
+            </div>
           </div>
           {resultQuery.error ? (
             <div className="p-4 text-sm text-rose-300">
@@ -150,12 +211,10 @@ export function ReplayDetail() {
                   : String(resultQuery.error),
               })}
             </div>
-          ) : resultQuery.data ? (
-            <iframe
-              title="replay-report"
-              srcDoc={textToPreDoc(resultQuery.data.result)}
-              className="w-full h-[65vh] bg-white"
-            />
+          ) : renderedText ? (
+            <pre className="p-4 text-xs font-mono leading-relaxed whitespace-pre-wrap break-words bg-white text-gray-900 min-h-[40vh]">
+              {renderedText}
+            </pre>
           ) : (
             <div className="p-4 text-sm text-[var(--color-muted)]">
               {t("replayDetail.selectPlayer")}

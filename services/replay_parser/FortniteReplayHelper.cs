@@ -1,9 +1,6 @@
 using Fortnite_Replay_Parser_GUI.Services;
-using Fortnite_Replay_Parser_GUI.Templates;
 using FortniteReplayReader;
 using FortniteReplayReader.Models;
-using Scriban;
-using Scriban.Runtime;
 using System.IO;
 using System.Net.Http;
 using System.Text.Encodings.Web;
@@ -152,187 +149,102 @@ namespace Fortnite_Replay_Parser_GUI
         }
 
         /// <summary>
-        /// Scribanテンプレートを使用して、マッチ結果をレンダリングし文字列として返します。
+        /// マッチ結果をフロントエンドで Mustache レンダリングするための構造化データを返します。
         /// </summary>
-        public async Task<string> RenderMatchResultFromTemplate(PlayerData? player, int offset)
+        public async Task<ResultData> BuildResultDataAsync(PlayerData? player, int offset)
         {
             var replayData = this.fnReplayData;
-            if (replayData == null || !replayData.GameData.UtcTimeStartedMatch.HasValue) return "";
 
-
-            // 開始・終了時刻
-            var start_time = replayData.GameData.UtcTimeStartedMatch.Value.ToLocalTime();
-            var started_at = $"{start_time}";
-            var ended_at = $"{start_time.AddMilliseconds(Convert.ToInt32(replayData.Info.LengthInMs))}";
-
-            // duration を "MM:SS" フォーマットにする（分は合計分数を表示）
+            var startTime = replayData.GameData.UtcTimeStartedMatch.HasValue
+                ? replayData.GameData.UtcTimeStartedMatch.Value.ToLocalTime()
+                : DateTime.Now;
+            var startedAt = $"{startTime}";
+            var endedAt = $"{startTime.AddMilliseconds(Convert.ToInt32(replayData.Info.LengthInMs))}";
             var matchLength = TimeSpan.FromMilliseconds(replayData.Info.LengthInMs);
             var duration = $"{(int)matchLength.TotalMinutes:D2}:{matchLength.Seconds:D2}";
 
+            var playersExceptNpcs = GetAllPlayersInReplay_Without_NPCs();
+            var totalPlayers = playersExceptNpcs.Count();
+            var humanPlayers = playersExceptNpcs.Count(o => !o.IsBot);
+            var botPlayers = totalPlayers - humanPlayers;
 
-            // プレイヤー集計
-            var playerData_except_NPCs = GetAllPlayersInReplay_Without_NPCs();
-            var total_players = playerData_except_NPCs.Count();
-            var human_players = playerData_except_NPCs.Count(o => !o.IsBot);
-            var bot_players = total_players - human_players;
+            var os = SystemInfoHelper.GetOS();
+            var cpu = SystemInfoHelper.GetCPU();
+            var memory = SystemInfoHelper.GetMemory();
+            var availableMemory = SystemInfoHelper.GetAvailableMemory();
+            var gpu = SystemInfoHelper.GetGPU();
+            var resolution = SystemInfoHelper.GetResolution();
 
-            // Cosmetics名は非同期で取得して await する
-            var cosmeticsName = await GetCosmeticsNameAsync(player?.Cosmetics?.Character ?? "Unknown");
-
-            // Scriban テンプレートを使用
-            var template = Template.Parse(Template_MatchResult.MatchStatTemplate);
-
-            var model = new
+            if (player == null || player.PlayerId == null)
             {
-                started_at = started_at,
-                ended_at = ended_at,
-                duration = duration,
-                total_players = total_players,
-                human_players = human_players,
-                bot_players = bot_players,
-                player_name = player == null ? "" : player.PlayerName,
-                cosmetics_name = cosmeticsName,
-                player_result = player == null ? "" : await RenderPlayerResultFromTemplate(player, offset),
-                system_info = RenderSystemInfoFromTemplate()
-            };
+                return new ResultData(
+                    StartedAt: startedAt, EndedAt: endedAt, Duration: duration,
+                    TotalPlayers: totalPlayers, HumanPlayers: humanPlayers, BotPlayers: botPlayers,
+                    PlayerName: "", CosmeticsName: "", HumanOrBot: "",
+                    IsWinner: false, IsEliminated: false,
+                    Placement: 0, PlacementDisplay: "",
+                    EliminationCount: 0, Eliminations: [],
+                    EliminatedByPlayerName: null, EliminatedByCosmeticsName: null,
+                    EliminatedByHumanOrBot: null, EliminatedByTime: null,
+                    Os: os, Cpu: cpu, Memory: memory, AvailableMemory: availableMemory,
+                    Gpu: gpu, Resolution: resolution
+                );
+            }
 
-            return template.Render(model, member => member.Name);
-        }
+            var cosmeticsName = await GetCosmeticsNameAsync(player.Cosmetics?.Character ?? "Unknown", "ja");
+            var humanOrBot = player.IsBot ? "bot" : "human";
 
-        /// <summary>
-        /// Scribanテンプレートを使用して、指定プレイヤーの戦績結果をレンダリングし文字列として返します。
-        /// </summary>
-        public async Task<string> RenderPlayerResultFromTemplate(PlayerData player, int offset)
-        {
-            var replayData = this.fnReplayData;
-            if (replayData == null || player == null || player.PlayerId == null) return "";
-
-            // eliminations: プレイヤーが倒した相手
             var eliminations = await Task.WhenAll(
                 replayData.Eliminations
-                .Where(c => c.Eliminator == player.PlayerId.ToUpper())
-                .Select(async (elim, idx) =>
-                {
-                    var killed = replayData.PlayerData.FirstOrDefault(d => d.PlayerId == elim.EliminatedInfo.Id.ToUpper());
-                    // Cosmetics名は非同期で取得して await する
-                    var cosmeticsName_killed = await GetCosmeticsNameAsync(killed?.Cosmetics?.Character ?? "Unknown", "ja");
-                    return new
+                    .Where(c => c.Eliminator == player.PlayerId.ToUpper())
+                    .Select(async (elim, idx) =>
                     {
-                        time = DateTime.ParseExact(elim.Time, "mm:ss", null).AddSeconds(offset).ToString("mm:ss"),
-                        player_name = killed?.PlayerName ?? "Unknown",
-                        cosmetics_name = cosmeticsName_killed,
-                        is_bot = killed?.IsBot ?? false,
-                        index = idx + 1
-                    };
-                })
-                .ToList()
+                        var killed = replayData.PlayerData.FirstOrDefault(d => d.PlayerId == elim.EliminatedInfo.Id.ToUpper());
+                        var killedCosmetics = await GetCosmeticsNameAsync(killed?.Cosmetics?.Character ?? "Unknown", "ja");
+                        return new EliminationEntry(
+                            Nth: FormNumber(idx + 1),
+                            Time: DateTime.ParseExact(elim.Time, "mm:ss", null).AddSeconds(offset).ToString("mm:ss"),
+                            PlayerName: killed?.PlayerName ?? "Unknown",
+                            CosmeticsName: killedCosmetics,
+                            HumanOrBot: (killed?.IsBot ?? false) ? "bot" : "human"
+                        );
+                    })
+                    .ToList()
             );
 
-            // eliminated: プレイヤーが倒された場合
             var eliminatedElim = replayData.Eliminations
-                .Where(c => c.Eliminated == player.PlayerId.ToUpper())
-                .FirstOrDefault();
+                .FirstOrDefault(c => c.Eliminated == player.PlayerId.ToUpper());
 
-            object? eliminated = null;
+            bool isEliminated = eliminatedElim != null;
+            string? eliminatedByPlayerName = null;
+            string? eliminatedByCosmeticsName = null;
+            string? eliminatedByHumanOrBot = null;
+            string? eliminatedByTime = null;
+
             if (eliminatedElim != null)
             {
                 var eliminator = replayData.PlayerData.FirstOrDefault(d => d.PlayerId == eliminatedElim.EliminatorInfo.Id.ToUpper());
-                var cosmeticsName_eliminator = await GetCosmeticsNameAsync(eliminator?.Cosmetics?.Character ?? "Unknown", "ja");
-                eliminated = new
-                {
-                    time = DateTime.ParseExact(eliminatedElim.Time, "mm:ss", null).AddSeconds(offset).ToString("mm:ss"),
-                    player_name = eliminator?.PlayerName ?? "Unknown",
-                    cosmetics_name = cosmeticsName_eliminator,
-                    is_bot = eliminator?.IsBot ?? false
-                };
+                eliminatedByCosmeticsName = await GetCosmeticsNameAsync(eliminator?.Cosmetics?.Character ?? "Unknown", "ja");
+                eliminatedByPlayerName = eliminator?.PlayerName ?? "Unknown";
+                eliminatedByHumanOrBot = (eliminator?.IsBot ?? false) ? "bot" : "human";
+                eliminatedByTime = DateTime.ParseExact(eliminatedElim.Time, "mm:ss", null).AddSeconds(offset).ToString("mm:ss");
             }
 
-            // Cosmetics名は非同期で取得して await する
-            var cosmeticsName = await GetCosmeticsNameAsync(player?.Cosmetics?.Character ?? "Unknown", "ja");
-
-            // Scriban テンプレート
-            var template = Template.Parse(Template_MatchResult.PlayerResultTemplate);
-
-            // FormNumber関数を Scriban に渡す
-            var scriptObj = new Scriban.Runtime.ScriptObject();
-            scriptObj.Import("fn_form_number", new Func<int, string>(FormNumber));
-
-            // プレイヤーの最後のロケーションを取得して JSON 文字列変数にする。
-            // ロケーションがない場合はデフォルトの Unknown JSON を使用する。
-            string lastLocationJson;
-            const string unknownLocationJson = "{\"x\":\"Unknown\", \"y\":\"Unknown\", \"z\":\"Unknown\"}";
-            if (player?.Locations != null && player.Locations.Count > 0)
-            {
-                var last = player.Locations[^1];
-                var loc = last?.ReplicatedMovement?.Location;
-                if (loc != null)
-                {
-                    try
-                    {
-                        var jsonOptions = new JsonSerializerOptions
-                        {
-                            Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
-                            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals,
-                            WriteIndented = false
-                        };
-                        lastLocationJson = JsonSerializer.Serialize(loc, jsonOptions);
-                    }
-                    catch
-                    {
-                        lastLocationJson = unknownLocationJson;
-                    }
-                }
-                else
-                {
-                    lastLocationJson = unknownLocationJson;
-                }
-            }
-            else
-            {
-                lastLocationJson = unknownLocationJson;
-            }
-
-            // プロパティをcontextに追加
-            scriptObj.SetValue("player_name", player.PlayerName, false);
-            scriptObj.SetValue("cosmetics_name", cosmeticsName, false);
-            scriptObj.SetValue("eliminations", eliminations, false);
-            scriptObj.SetValue("elimination_count", eliminations.Length, false);
-            scriptObj.SetValue("eliminated", eliminated, false);
-            scriptObj.SetValue("placement", player.Placement, false);
-            scriptObj.SetValue("last_location", lastLocationJson, false);
-
-            var context = new Scriban.TemplateContext();
-            context.PushGlobal(scriptObj);
-
-            return template.Render(context);
-        }
-
-        /// <summary>
-        /// Template_SystemInfo.cs と SystemInfoHelper.cs を使って、Scriban でシステム情報をレンダリングして文字列で返します。
-        /// </summary>
-        public string RenderSystemInfoFromTemplate()
-        {
-            try
-            {
-                var template = Template.Parse(Template_MatchResult.SystemInfoTemplate);
-
-                var model = new
-                {
-                    os = SystemInfoHelper.GetOS(),
-                    cpu = SystemInfoHelper.GetCPU(),
-                    memory = SystemInfoHelper.GetMemory(),
-                    available_memory = SystemInfoHelper.GetAvailableMemory(),
-                    gpu = SystemInfoHelper.GetGPU(),
-                    resolution = SystemInfoHelper.GetResolution()
-                };
-
-                return template.Render(model, member => member.Name);
-            }
-            catch (Exception ex)
-            {
-                // 呼び出し側でログを取る想定。簡潔なエラーメッセージを返す。
-                return $"システム情報のレンダリングに失敗しました: {ex.Message}";
-            }
+            return new ResultData(
+                StartedAt: startedAt, EndedAt: endedAt, Duration: duration,
+                TotalPlayers: totalPlayers, HumanPlayers: humanPlayers, BotPlayers: botPlayers,
+                PlayerName: player.PlayerName, CosmeticsName: cosmeticsName, HumanOrBot: humanOrBot,
+                IsWinner: !isEliminated && player.Placement == 1,
+                IsEliminated: isEliminated,
+                Placement: player.Placement ?? 0, PlacementDisplay: FormNumber(player.Placement ?? 0),
+                EliminationCount: eliminations.Length, Eliminations: eliminations,
+                EliminatedByPlayerName: eliminatedByPlayerName,
+                EliminatedByCosmeticsName: eliminatedByCosmeticsName,
+                EliminatedByHumanOrBot: eliminatedByHumanOrBot,
+                EliminatedByTime: eliminatedByTime,
+                Os: os, Cpu: cpu, Memory: memory, AvailableMemory: availableMemory,
+                Gpu: gpu, Resolution: resolution
+            );
         }
     }
 }

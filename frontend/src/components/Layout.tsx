@@ -50,7 +50,7 @@ export function Layout() {
           <h1 className="text-sm font-semibold tracking-wide">
             Fortnite Replay Suite
           </h1>
-          <p className="text-xs text-[var(--color-muted)] mt-0.5">v0.1.0</p>
+          <p className="text-xs text-[var(--color-muted)] mt-0.5">v0.2.0</p>
         </div>
         <nav className="flex-1 p-2 space-y-1">
           {NAV.map((item) => (

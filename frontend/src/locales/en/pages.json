@@ -132,7 +132,9 @@
     "matchResult": "Match Result",
     "generating": "Generating…",
     "generateFailed": "Generate failed: {{error}}",
-    "selectPlayer": "Select a player to view results."
+    "selectPlayer": "Select a player to view results.",
+    "copy": "Copy",
+    "copied": "Copied!"
   },
   "replayMap": {
     "title": "Map: {{filename}}",
@@ -255,6 +257,8 @@
     "fieldObsDirHint": "Auto-populated when OBS WebSocket is connected. Current source:",
     "fieldLogPath": "Fortnite Log Path (log_path)",
     "fieldLogPathHint": "Usually %LOCALAPPDATA%\\FortniteGame\\Saved\\Logs\\FortniteGame.log",
+    "fieldResultTemplate": "Match Result Template (Mustache)",
+    "fieldResultTemplateHint": "Available fields: {{player_name}}, {{placement_display}}, {{#eliminations}}...{{/eliminations}}, etc. Output by the \"Copy\" button on the replay detail page.",
     "saveFailed": "Save failed: {{error}}"
   }
 }

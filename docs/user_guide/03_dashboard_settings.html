@@ -33,9 +33,10 @@
           <li><a href="#overview"><span class="sn">—</span>概要</a></li>
           <li><a href="#dashboard"><span class="sn">1</span>ダッシュボード</a></li>
           <li><a href="#settings-page"><span class="sn">2</span>設定ページ</a></li>
-          <li><a href="#fields"><span class="sn">3</span>4 つの設定項目</a></li>
-          <li><a href="#obs-badge"><span class="sn">4</span>OBS 録画フォルダ取得元バッジ</a></li>
-          <li><a href="#theme"><span class="sn">5</span>テーマ切替</a></li>
+          <li><a href="#fields"><span class="sn">3</span>設定項目一覧</a></li>
+          <li><a href="#template"><span class="sn">4</span>マッチ結果テンプレート</a></li>
+          <li><a href="#obs-badge"><span class="sn">5</span>OBS 録画フォルダ取得元バッジ</a></li>
+          <li><a href="#theme"><span class="sn">6</span>テーマ切替</a></li>
         </ul>
       </div>
       <div class="sidebar-section">
@@ -80,10 +81,10 @@
 
       <section id="settings-page">
         <h2><span class="h2-num">2</span>設定ページ</h2>
-        <p>サイドバーの「設定」または直接 <code>/settings</code> を開くと、4 つの設定項目を編集できます。値はすべて <code>~/.fortnite-suite/config.json</code> に保存されます。</p>
+        <p>サイドバーの「設定」または直接 <code>/settings</code> を開くと、各種設定項目を編集できます。値はすべて <code>~/.fortnite-suite/config.json</code> に保存されます。</p>
         <figure class="figure">
           <img src="./assets/img/03_02_settings_full.png" alt="設定ページ（/settings）全体表示" loading="lazy" />
-          <figcaption>図 3.2 — 設定ページ。4 項目すべてが入力された状態</figcaption>
+          <figcaption>図 3.2 — 設定ページ</figcaption>
         </figure>
         <div class="callout callout-note">
           <span class="callout-icon">💡</span>
@@ -95,7 +96,7 @@
       </section>
 
       <section id="fields">
-        <h2><span class="h2-num">3</span>4 つの設定項目</h2>
+        <h2><span class="h2-num">3</span>設定項目一覧</h2>
         <table>
           <thead>
             <tr><th>キー (API)</th><th>UI ラベル</th><th>用途</th></tr>
@@ -121,6 +122,11 @@
               <td>Fortnite ログパス</td>
               <td>ログ監視機能で tail するファイル。通常 <code>%LOCALAPPDATA%\FortniteGame\Saved\Logs\FortniteGame.log</code></td>
             </tr>
+            <tr>
+              <td><code>replay_result_template</code></td>
+              <td>マッチ結果テンプレート</td>
+              <td>リプレイ詳細の「コピー」ボタンで出力されるテキストの書式を Mustache 記法で定義。フィールド詳細は <a href="#template">§4</a> 参照</td>
+            </tr>
           </tbody>
         </table>
 
@@ -133,8 +139,195 @@
         </div>
       </section>
 
+      <section id="template">
+        <h2><span class="h2-num">4</span>マッチ結果テンプレート</h2>
+        <p>リプレイ詳細ページ（<code>/replays/:id</code>）の「コピー」ボタンで出力されるテキストは、<strong>Mustache</strong> 記法で書かれたテンプレートを使ってブラウザ上でレンダリングされます。テンプレートはこの設定フィールドで自由に編集できます。</p>
+        <p>デフォルトのテンプレートは YouTube の動画説明欄への貼り付けを想定したプレーンテキスト形式です。<code>{{フィールド名}}</code> の部分に実際の値が埋め込まれます。</p>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">Mustache 記法の基本</span>
+            <ul style="margin:6px 0 0; padding-left:20px; line-height:1.8;">
+              <li><code>{{field}}</code> — 値を埋め込む</li>
+              <li><code>{{#eliminations}} … {{/eliminations}}</code> — キル一覧のループ（<code>eliminations</code> が空なら何も出力されない）</li>
+              <li><code>{{#is_eliminated}} … {{/is_eliminated}}</code> — 真のときだけ出力するセクション</li>
+              <li><code>{{^is_eliminated}} … {{/is_eliminated}}</code> — 偽のときだけ出力する逆セクション</li>
+            </ul>
+          </div>
+        </div>
+
+        <h3 style="margin-top:28px; font-size:18px;">利用できるフィールド一覧</h3>
+
+        <table>
+          <thead>
+            <tr><th>フィールド名</th><th>型</th><th>内容</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="3" style="background:var(--surface-1); font-size:12px; font-weight:600; letter-spacing:.05em; color:var(--fg-2);">試合情報</td></tr>
+            <tr>
+              <td><code>started_at</code></td>
+              <td>文字列</td>
+              <td>試合開始日時（例: <code>2026/05/17 日曜日 16:58:04</code>）</td>
+            </tr>
+            <tr>
+              <td><code>ended_at</code></td>
+              <td>文字列</td>
+              <td>試合終了日時</td>
+            </tr>
+            <tr>
+              <td><code>duration</code></td>
+              <td>文字列</td>
+              <td>試合の長さ（例: <code>23:49</code>）</td>
+            </tr>
+            <tr>
+              <td><code>total_players</code></td>
+              <td>整数</td>
+              <td>総プレイヤー数</td>
+            </tr>
+            <tr>
+              <td><code>human_players</code></td>
+              <td>整数</td>
+              <td>人間プレイヤー数</td>
+            </tr>
+            <tr>
+              <td><code>bot_players</code></td>
+              <td>整数</td>
+              <td>Bot 数</td>
+            </tr>
+            <tr><td colspan="3" style="background:var(--surface-1); font-size:12px; font-weight:600; letter-spacing:.05em; color:var(--fg-2);">自プレイヤー情報</td></tr>
+            <tr>
+              <td><code>player_name</code></td>
+              <td>文字列</td>
+              <td>Epic 表示名</td>
+            </tr>
+            <tr>
+              <td><code>cosmetics_name</code></td>
+              <td>文字列</td>
+              <td>使用スキン名</td>
+            </tr>
+            <tr>
+              <td><code>human_or_bot</code></td>
+              <td>文字列</td>
+              <td><code>human</code> または <code>bot</code></td>
+            </tr>
+            <tr>
+              <td><code>placement</code></td>
+              <td>整数</td>
+              <td>順位（数値、例: <code>98</code>）</td>
+            </tr>
+            <tr>
+              <td><code>placement_display</code></td>
+              <td>文字列</td>
+              <td>序数付き順位（例: <code>98th</code>）</td>
+            </tr>
+            <tr>
+              <td><code>elimination_count</code></td>
+              <td>整数</td>
+              <td>キル数</td>
+            </tr>
+            <tr>
+              <td><code>is_winner</code></td>
+              <td>真偽値</td>
+              <td>Victory Royale なら <code>true</code>。<code>{{#is_winner}}…{{/is_winner}}</code> 形式で使用</td>
+            </tr>
+            <tr>
+              <td><code>is_eliminated</code></td>
+              <td>真偽値</td>
+              <td>敗北（デス）なら <code>true</code>。<code>{{#is_eliminated}}…{{/is_eliminated}}</code> 形式で使用</td>
+            </tr>
+            <tr><td colspan="3" style="background:var(--surface-1); font-size:12px; font-weight:600; letter-spacing:.05em; color:var(--fg-2);">キル一覧ループ（<code>{{#eliminations}} … {{/eliminations}}</code> の中で使用）</td></tr>
+            <tr>
+              <td><code>nth</code></td>
+              <td>文字列</td>
+              <td>何キル目か（序数表記: <code>1st</code>、<code>2nd</code> …）</td>
+            </tr>
+            <tr>
+              <td><code>time</code></td>
+              <td>文字列</td>
+              <td>キル発生時刻（試合開始からの経過時間, 例: <code>05:23</code>）</td>
+            </tr>
+            <tr>
+              <td><code>player_name</code></td>
+              <td>文字列</td>
+              <td>キルした相手の表示名</td>
+            </tr>
+            <tr>
+              <td><code>cosmetics_name</code></td>
+              <td>文字列</td>
+              <td>相手のスキン名</td>
+            </tr>
+            <tr>
+              <td><code>human_or_bot</code></td>
+              <td>文字列</td>
+              <td>相手が <code>human</code> か <code>bot</code> か</td>
+            </tr>
+            <tr><td colspan="3" style="background:var(--surface-1); font-size:12px; font-weight:600; letter-spacing:.05em; color:var(--fg-2);">デス情報（<code>is_eliminated</code> が真のときのみ有効）</td></tr>
+            <tr>
+              <td><code>eliminated_by_player_name</code></td>
+              <td>文字列</td>
+              <td>倒したプレイヤーの表示名</td>
+            </tr>
+            <tr>
+              <td><code>eliminated_by_cosmetics_name</code></td>
+              <td>文字列</td>
+              <td>倒したプレイヤーのスキン名</td>
+            </tr>
+            <tr>
+              <td><code>eliminated_by_human_or_bot</code></td>
+              <td>文字列</td>
+              <td>倒したプレイヤーが <code>human</code> か <code>bot</code> か</td>
+            </tr>
+            <tr>
+              <td><code>eliminated_by_time</code></td>
+              <td>文字列</td>
+              <td>デス発生時刻</td>
+            </tr>
+            <tr><td colspan="3" style="background:var(--surface-1); font-size:12px; font-weight:600; letter-spacing:.05em; color:var(--fg-2);">プラットフォーム情報</td></tr>
+            <tr>
+              <td><code>os</code></td>
+              <td>文字列</td>
+              <td>OS 名（例: <code>Microsoft Windows 11 Pro</code>）</td>
+            </tr>
+            <tr>
+              <td><code>cpu</code></td>
+              <td>文字列</td>
+              <td>CPU 名</td>
+            </tr>
+            <tr>
+              <td><code>memory</code></td>
+              <td>文字列</td>
+              <td>総 RAM 量（例: <code>63.93 GB RAM</code>）</td>
+            </tr>
+            <tr>
+              <td><code>available_memory</code></td>
+              <td>文字列</td>
+              <td>使用可能 RAM 量</td>
+            </tr>
+            <tr>
+              <td><code>gpu</code></td>
+              <td>文字列</td>
+              <td>GPU 名</td>
+            </tr>
+            <tr>
+              <td><code>resolution</code></td>
+              <td>文字列</td>
+              <td>解像度（例: <code>2560 x 1440</code>）</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout callout-note">
+          <span class="callout-icon">💡</span>
+          <div class="callout-body">
+            <span class="callout-title">テンプレートのリセット</span>
+            <p>テンプレートをデフォルトに戻したい場合は、フィールドを空欄にして保存すると、次に設定を開いた際にデフォルトテンプレートが再読み込みされます。</p>
+          </div>
+        </div>
+      </section>
+
       <section id="obs-badge">
-        <h2><span class="h2-num">4</span>OBS 録画フォルダ取得元バッジ</h2>
+        <h2><span class="h2-num">5</span>OBS 録画フォルダ取得元バッジ</h2>
         <p>「OBS 録画フォルダ」フィールドの hint 行には、その値が <strong>どこから来たか</strong> を示す小さなピル型バッジが表示されます。</p>
         <figure class="figure">
           <img src="./assets/img/03_04_obs_badge.png" alt="OBS WebSocket バッジ（緑）" loading="lazy" />
@@ -174,7 +367,7 @@
       </section>
 
       <section id="theme">
-        <h2><span class="h2-num">5</span>テーマ切替</h2>
+        <h2><span class="h2-num">6</span>テーマ切替</h2>
         <p>サイドバー下部のスイッチで light / dark テーマを切り替えられます。設定はブラウザの localStorage に保存され、次回以降も維持されます。</p>
         <figure class="figure">
           <img src="./assets/img/03_03_theme_light.png" alt="ライトテーマでの設定ページ表示" loading="lazy" />

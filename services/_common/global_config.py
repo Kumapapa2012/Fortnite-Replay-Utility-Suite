@@ -11,6 +11,35 @@ from typing import Any
 
 from .paths import global_config_path
 
+_DEFAULT_RESULT_TEMPLATE = (
+    "========= Match Data ============\n"
+    "Started : {{started_at}}\n"
+    "Ended : {{ended_at}}\n"
+    "Duration : {{duration}}\n"
+    "Total Players: {{total_players}}(Humans : {{human_players}} / Bots : {{bot_players}})\n"
+    "\n"
+    "========= Player Results =========\n"
+    "Player : {{player_name}}[{{cosmetics_name}}] ({{human_or_bot}}) eliminated {{elimination_count}} players.\n"
+    "{{#eliminations}}\n"
+    "{{nth}}: {{time}} - {{player_name}}[{{cosmetics_name}}] ({{human_or_bot}})\n"
+    "{{/eliminations}}\n"
+    "{{#is_eliminated}}{{player_name}} was eliminated by "
+    "{{eliminated_by_player_name}}[{{eliminated_by_cosmetics_name}}]"
+    "({{eliminated_by_human_or_bot}}) at {{eliminated_by_time}} (Placement: {{placement_display}})\n"
+    "{{/is_eliminated}}"
+    "{{^is_eliminated}}{{#is_winner}}{{player_name}} won the game!{{/is_winner}}"
+    "{{^is_winner}}The replay ended before the match ends.{{/is_winner}}\n"
+    "{{/is_eliminated}}\n"
+    "========= Platform ===============\n"
+    "OS : {{os}}\n"
+    "CPU : {{cpu}}\n"
+    "Memory : {{memory}} - {{available_memory}}\n"
+    "GPU : {{gpu}}\n"
+    "Resolution : {{resolution}}\n"
+    "\n"
+    "(This data has been produced using: https://github.com/Kumapapa2012/Fortnite_Replay_Parser_GUI/)"
+)
+
 DEFAULT_CONFIG: dict[str, Any] = {
     "player": {
         "epic_display_id": "",
@@ -26,6 +55,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # Default Fortnite replay dir (Windows): %LOCALAPPDATA%/FortniteGame/Saved/Demos
         "dir": "",
     },
+    "replay_result_template": _DEFAULT_RESULT_TEMPLATE,
 }
 
 

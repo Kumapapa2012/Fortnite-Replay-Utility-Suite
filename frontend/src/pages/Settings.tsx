@@ -56,8 +56,8 @@ export function Settings() {
   const onSave = () => {
     if (!cfg.data || !draft) return;
     const diff: Partial<SuiteConfig> = {};
-    (["userPlayerId", "demosDir", "obsRecordingDir", "logPath"] as const).forEach((k) => {
-      if (draft[k] !== cfg.data![k]) diff[k] = draft[k];
+    (["userPlayerId", "demosDir", "obsRecordingDir", "logPath", "replayResultTemplate"] as const).forEach((k) => {
+      if (draft[k] !== cfg.data![k]) diff[k] = draft[k] as string;
     });
     if (Object.keys(diff).length === 0) return;
     saveMut.mutate(diff);
@@ -107,6 +107,12 @@ export function Settings() {
               value={draft.logPath}
               onChange={onField("logPath")}
             />
+            <TextareaField
+              label={t("settings.fieldResultTemplate")}
+              hint={t("settings.fieldResultTemplateHint")}
+              value={draft.replayResultTemplate}
+              onChange={onField("replayResultTemplate")}
+            />
 
             <div className="flex items-center gap-3 pt-2">
               <button
@@ -152,6 +158,32 @@ function Field({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-mono focus:border-[var(--color-accent)] focus:outline-none"
+        spellCheck={false}
+      />
+    </div>
+  );
+}
+
+function TextareaField({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: React.ReactNode;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="block text-xs font-medium">{label}</label>
+      {hint && <p className="text-[11px] text-[var(--color-muted)]">{hint}</p>}
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={16}
+        className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-xs font-mono leading-relaxed focus:border-[var(--color-accent)] focus:outline-none resize-y"
         spellCheck={false}
       />
     </div>
