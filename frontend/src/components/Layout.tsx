@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useParams, Navigate } from "react-r
 import { useTranslation } from "react-i18next";
 
 import { ThemeToggle } from "./ThemeToggle";
-import { LangContext, parseLang, SUPPORTED_LANGS, type Lang } from "../contexts/LangContext";
+import { LangContext, parseLang, SUPPORTED_LANGS, DEFAULT_LANG, type Lang } from "../contexts/LangContext";
 import { useLang } from "../contexts/LangContext";
 
 export function LangLayout() {
@@ -16,7 +16,7 @@ export function LangLayout() {
   }, [parsed, i18n]);
 
   if (!SUPPORTED_LANGS.includes(lang as Lang)) {
-    return <Navigate to="/ja/" replace />;
+    return <Navigate to={`/${DEFAULT_LANG}/`} replace />;
   }
 
   return (

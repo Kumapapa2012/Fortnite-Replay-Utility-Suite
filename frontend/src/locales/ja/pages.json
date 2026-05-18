@@ -248,6 +248,8 @@
   "settings": {
     "title": "設定",
     "subtitle": "~/.fortnite-suite/config.json に保存されます",
+    "fieldDefaultLang": "既定の言語 (ui_lang)",
+    "fieldDefaultLangHint": "/ にアクセスしたときのリダイレクト先言語。",
     "fieldPlayerId": "Epic Player ID (epic_display_id)",
     "fieldPlayerIdHint": "リプレイ内の自分の PlayerId (UUID) と照合するのに使います。",
     "fieldReplaysDir": "リプレイフォルダ (demos_dir)",

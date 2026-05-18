@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { PageHeader } from "../components/PageHeader";
 import { ApiError } from "../lib/api";
 import { suiteCoreApi, type SuiteConfig } from "../lib/suiteCore";
+import { SUPPORTED_LANGS, type Lang } from "../contexts/LangContext";
 
 const errText = (e: unknown) =>
   e instanceof ApiError ? e.message : e instanceof Error ? e.message : String(e);
@@ -59,6 +60,7 @@ export function Settings() {
     (["userPlayerId", "demosDir", "obsRecordingDir", "logPath", "replayResultTemplate"] as const).forEach((k) => {
       if (draft[k] !== cfg.data![k]) diff[k] = draft[k] as string;
     });
+    if (draft.uiLang !== cfg.data.uiLang) diff.uiLang = draft.uiLang;
     if (Object.keys(diff).length === 0) return;
     saveMut.mutate(diff);
   };
@@ -78,6 +80,16 @@ export function Settings() {
         )}
         {draft && (
           <>
+            <SelectField
+              label={t("settings.fieldDefaultLang")}
+              hint={t("settings.fieldDefaultLangHint")}
+              value={draft.uiLang}
+              options={SUPPORTED_LANGS.map((l) => ({ value: l, label: tc(`lang.${l}`) }))}
+              onChange={(v) => {
+                if (!draft) return;
+                setDraft({ ...draft, uiLang: v as Lang });
+              }}
+            />
             <Field
               label={t("settings.fieldPlayerId")}
               hint={t("settings.fieldPlayerIdHint")}
@@ -134,6 +146,38 @@ export function Settings() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  hint,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  hint?: React.ReactNode;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="block text-xs font-medium">{label}</label>
+      {hint && <p className="text-[11px] text-[var(--color-muted)]">{hint}</p>}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs focus:border-[var(--color-accent)] focus:outline-none"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

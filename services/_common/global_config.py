@@ -56,6 +56,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "dir": "",
     },
     "replay_result_template": _DEFAULT_RESULT_TEMPLATE,
+    "ui_lang": "en",
 }
 
 

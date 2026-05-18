@@ -3,7 +3,7 @@ import { createContext, useContext } from "react";
 export type Lang = "ja" | "en";
 
 export const SUPPORTED_LANGS: Lang[] = ["ja", "en"];
-export const DEFAULT_LANG: Lang = "ja";
+export const DEFAULT_LANG: Lang = "en";
 
 export const LangContext = createContext<Lang>(DEFAULT_LANG);
 
