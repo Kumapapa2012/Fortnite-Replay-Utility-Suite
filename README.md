@@ -4,6 +4,10 @@ A personal Windows-local tool that consolidates Fortnite replay analysis, map vi
 
 > 📖 **See the [User Guide](https://kumapapa2012.github.io/Fortnite-Replay-Utility-Suite/user_guide/) for full instructions.** It covers initial setup, daily start/stop, all screen operations, and troubleshooting across 7 chapters with screenshots (source in [`docs/user_guide/`](./docs/user_guide/)).
 
+> The user guide is written in Japanese, and the latest content applies to the Japanese version. For other languages, please use Google Translate or similar.
+
+> Example: [English(Google Translate)](https://kumapapa2012-github-io.translate.goog/Fortnite-Replay-Utility-Suite/user_guide/index.html?_x_tr_sl=ja&_x_tr_tl=en&_x_tr_hl=ja&_x_tr_pto=wapp)
+
 Six processes work together internally (Gateway + 5 backend services + Vite frontend).
 
 ```
