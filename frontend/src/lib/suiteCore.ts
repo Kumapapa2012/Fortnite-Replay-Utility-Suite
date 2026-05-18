@@ -4,6 +4,7 @@
  * snake→camel conversion so the React side sees camelCase.
  */
 import { api } from "./api";
+import type { Lang } from "../contexts/LangContext";
 
 const BASE = "/api/suite";
 
@@ -115,6 +116,7 @@ export interface SuiteConfig {
   obsRecordingDirSource: ObsDirSource;
   logPath: string;
   replayResultTemplate: string;
+  uiLang: Lang;
 }
 
 export const suiteCoreApi = {

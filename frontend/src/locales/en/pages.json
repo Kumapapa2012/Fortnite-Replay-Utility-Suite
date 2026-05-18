@@ -249,6 +249,8 @@
   "settings": {
     "title": "Settings",
     "subtitle": "Saved to ~/.fortnite-suite/config.json",
+    "fieldDefaultLang": "Default Language (ui_lang)",
+    "fieldDefaultLangHint": "Language to redirect to when visiting /.",
     "fieldPlayerId": "Epic Player ID (epic_display_id)",
     "fieldPlayerIdHint": "Used to match your PlayerId (UUID) inside replays.",
     "fieldReplaysDir": "Replay Folder (demos_dir)",
