@@ -3,8 +3,6 @@
 A personal Windows-local tool that consolidates Fortnite replay analysis, map visualization, log monitoring, and OBS recording trimming into a **single Web UI**.
 
 > 📖 **See the [User Guide](https://kumapapa2012.github.io/Fortnite-Replay-Utility-Suite/user_guide/) for full instructions.** It covers initial setup, daily start/stop, all screen operations, and troubleshooting across 7 chapters with screenshots (source in [`docs/user_guide/`](./docs/user_guide/)).
-> 📖 **User Guide is authored in Japanese and all new updates are written in Japanese. Please use translation service like Google Translate for other languages.
-> Example: [Google Translate - English Version](https://kumapapa2012-github-io.translate.goog/Fortnite-Replay-Utility-Suite/user_guide/index.html?_x_tr_sl=ja&_x_tr_tl=en&_x_tr_hl=ja&_x_tr_pto=wapp)
 
 Six processes work together internally (Gateway + 5 backend services + Vite frontend).
 
