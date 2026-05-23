@@ -183,13 +183,23 @@ def concat_clips(
         list_path.unlink(missing_ok=True)
 
 
-def nearest_keyframe_at_or_after(keyframes: list[float], target: float) -> float:
+
+def nearest_keyframe_after(keyframes: list[float], target: float) -> float:
     """Return the nearest keyframe >= target. Falls back to the last keyframe before target."""
     after = [kf for kf in keyframes if kf >= target]
     if after:
         return min(after)
     before = [kf for kf in keyframes if kf < target]
     return max(before) if before else target
+
+
+def nearest_keyframe_before(keyframes: list[float], target: float) -> float:
+    """Return the nearest keyframe <= target. Falls back to the first keyframe after target."""
+    before = [kf for kf in keyframes if kf <= target]
+    if before:
+        return max(before)
+    after = [kf for kf in keyframes if kf > target]
+    return min(after) if after else target
 
 
 def seconds_to_hms(seconds: float) -> str:

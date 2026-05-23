@@ -54,7 +54,8 @@ from .ffmpeg_tools import (  # noqa: E402
     extract_thumbnail,
     find_keyframes,
     kill_clip_copy,
-    nearest_keyframe_at_or_after,
+    nearest_keyframe_after,
+    nearest_keyframe_before,
     probe_duration,
     seconds_to_hms,
     trim_copy,
@@ -506,18 +507,25 @@ async def kill_compilation(body: KillCompilationBody) -> dict:
     try:
         for i, kill_offset in enumerate(body.kill_offsets):
             target_start = max(0.0, kill_offset - body.before_sec)
-            end_sec = min(total_duration, kill_offset + body.after_sec)
+            target_end = min(total_duration, kill_offset + body.after_sec)
 
-            # target_start 周辺のキーフレームを取得（前後 1 秒の余裕を持たせて探索）
-            search_start = max(0.0, target_start - 1.0)
+            # start側: target_start 直前のキーフレームを取得
+            search_start = max(0.0, target_start - 5.0)
             kf_list = await asyncio.to_thread(
                 find_keyframes, ffprobe, str(video), search_start, 7.0
             )
-            actual_start = nearest_keyframe_at_or_after(kf_list, target_start)
+            actual_start = nearest_keyframe_before(kf_list, target_start)
+
+            # end側: target_end 直後のキーフレームを取得
+            search_end = max(0.0, target_end - 1.0)
+            kf_list_end = await asyncio.to_thread(
+                find_keyframes, ffprobe, str(video), search_end, 6.0
+            )
+            actual_end = min(nearest_keyframe_after(kf_list_end, target_end), total_duration)
 
             clip_path = str(tmp_dir / f"clip_{i:03d}.mp4")
             r = await asyncio.to_thread(
-                kill_clip_copy, ffmpeg, str(video), actual_start, end_sec, clip_path
+                kill_clip_copy, ffmpeg, str(video), actual_start, actual_end, clip_path
             )
             if r.returncode != 0 or not Path(clip_path).exists():
                 raise HTTPException(
@@ -528,8 +536,8 @@ async def kill_compilation(body: KillCompilationBody) -> dict:
             clip_infos.append({
                 "killOffsetSec": round(kill_offset, 3),
                 "actualStartSec": round(actual_start, 3),
-                "endSec": round(end_sec, 3),
-                "durationSec": round(end_sec - actual_start, 3),
+                "endSec": round(actual_end, 3),
+                "durationSec": round(actual_end - actual_start, 3),
             })
 
         out_path = video.parent / f"{video.stem}_kills.mp4"
