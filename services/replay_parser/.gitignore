@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # kmori
 *.zip
+
+# Debug field dumps emitted by the parser
+cmds/

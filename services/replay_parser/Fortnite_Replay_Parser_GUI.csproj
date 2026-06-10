@@ -8,7 +8,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FortniteReplayReader" Version="3.0.0" />
+    <!-- vendor はソース自動取り込みの対象から除外（ProjectReference 経由でのみ参照する） -->
+    <Compile Remove="vendor\**" />
+    <Content Remove="vendor\**" />
+    <None Remove="vendor\**" />
+    <EmbeddedResource Remove="vendor\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- v41.00 対応（上流 PR #77 未リリース）のため NuGet ではなく vendor をビルドして参照する。
+         上流が修正版を NuGet リリースしたら PackageReference に戻してよい。 -->
+    <ProjectReference Include="vendor\FortniteReplayDecompressor\src\FortniteReplayReader\FortniteReplayReader.csproj" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="RichardSzalay.MockHttp" Version="7.0.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
